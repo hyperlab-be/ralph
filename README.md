@@ -161,12 +161,10 @@ $ ralph status
    Path: /Users/dev/myproject-api-v2
 ```
 
-With auto-refresh (like `watch`):
+With auto-refresh:
 
 ```bash
-$ ralph status --watch
-# or
-$ ralph status -w -i 3  # refresh every 3 seconds
+$ ralph status -f  # or --follow
 ```
 
 ---

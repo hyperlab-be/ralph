@@ -22,12 +22,10 @@ var statusCmd = &cobra.Command{
 	RunE:    runStatus,
 }
 
-var watchStatus bool
-var watchInterval int
+var followStatus bool
 
 func init() {
-	statusCmd.Flags().BoolVarP(&watchStatus, "watch", "w", false, "Auto-refresh status")
-	statusCmd.Flags().IntVarP(&watchInterval, "interval", "i", 5, "Refresh interval in seconds (with --watch)")
+	statusCmd.Flags().BoolVarP(&followStatus, "follow", "f", false, "Auto-refresh status")
 	rootCmd.AddCommand(statusCmd)
 }
 
@@ -37,8 +35,8 @@ func runStatus(cmd *cobra.Command, args []string) error {
 		filterName = args[0]
 	}
 
-	if watchStatus {
-		return runStatusWatch(filterName)
+	if followStatus {
+		return runStatusFollow(filterName)
 	}
 
 	return renderStatus(filterName)
@@ -78,11 +76,11 @@ func renderStatus(filterName string) error {
 	return nil
 }
 
-func runStatusWatch(filterName string) error {
+func runStatusFollow(filterName string) error {
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
-	ticker := time.NewTicker(time.Duration(watchInterval) * time.Second)
+	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
 
 	// Initial render
@@ -103,7 +101,7 @@ func renderStatusScreen(filterName string) {
 	// Clear screen
 	fmt.Print("\033[2J\033[H")
 	renderStatus(filterName)
-	fmt.Printf("\n\033[2m[Refreshing every %ds - Ctrl+C to exit]\033[0m\n", watchInterval)
+	fmt.Print("\n\033[2m[Refreshing every 5s - Ctrl+C to exit]\033[0m\n")
 }
 
 func printLoopStatus(l *config.Loop) {
