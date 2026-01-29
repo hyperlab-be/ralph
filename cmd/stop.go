@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"syscall"
 
-	"github.com/hyperlab/ralph/internal/config"
+	"github.com/hyperlab-be/ralph/internal/config"
 	"github.com/spf13/cobra"
 )
 

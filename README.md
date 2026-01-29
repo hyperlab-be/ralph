@@ -13,13 +13,13 @@ CLI tool for managing AI-powered development loops with [ralph-tui](https://gith
 ## Installation
 
 ```bash
-go install github.com/hyperlab/ralph@latest
+go install github.com/hyperlab-be/ralph@latest
 ```
 
 Or build from source:
 
 ```bash
-git clone https://github.com/hyperlab/ralph.git
+git clone https://github.com/hyperlab-be/ralph.git
 cd ralph
 go build -o rl .
 ```

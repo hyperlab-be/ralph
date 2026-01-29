@@ -1,4 +1,4 @@
-module github.com/hyperlab/ralph
+module github.com/hyperlab-be/ralph
 
 go 1.25.6
 

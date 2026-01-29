@@ -6,7 +6,7 @@ import (
 	"os/exec"
 	"syscall"
 
-	"github.com/hyperlab/ralph/internal/config"
+	"github.com/hyperlab-be/ralph/internal/config"
 )
 
 // IsRunning checks if a loop is currently running
