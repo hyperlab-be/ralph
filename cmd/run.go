@@ -31,23 +31,21 @@ The agent will:
   - Commit changes and mark the story complete
   - Move to the next story
 
-Sandbox modes:
-  - none:   No sandbox (default, interactive)
-  - docker: Docker sandbox (recommended for AFK)`,
+Use --sandbox (-s) to run in a Docker sandbox for safe AFK operation.`,
 	RunE: runAgent,
 }
 
 var (
 	maxIterations int
 	dryRun        bool
-	sandbox       string
+	sandbox       bool
 	once          bool
 )
 
 func init() {
 	runCmd.Flags().IntVarP(&maxIterations, "max-iterations", "m", 10, "Maximum iterations")
 	runCmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be done without executing")
-	runCmd.Flags().StringVarP(&sandbox, "sandbox", "s", "none", "Sandbox mode: none, docker")
+	runCmd.Flags().BoolVarP(&sandbox, "sandbox", "s", false, "Run in Docker sandbox (recommended for AFK)")
 	runCmd.Flags().BoolVar(&once, "once", false, "Run single iteration (HITL mode)")
 	rootCmd.AddCommand(runCmd)
 }
@@ -103,20 +101,19 @@ func runAgent(cmd *cobra.Command, args []string) error {
 		maxIterations = 1
 	}
 
-	// Validate sandbox
-	if sandbox != "docker" && sandbox != "none" {
-		return fmt.Errorf("invalid sandbox mode: %s (use: docker, none)", sandbox)
-	}
-
 	// Check docker sandbox availability
-	if sandbox == "docker" {
+	if sandbox {
 		if err := checkDockerSandbox(); err != nil {
 			return err
 		}
 	}
 
 	printInfo(fmt.Sprintf("Starting agent loop for %s", worktreeName))
-	printInfo(fmt.Sprintf("Model: %s | Max iterations: %d | Sandbox: %s", model, maxIterations, sandbox))
+	sandboxStr := "off"
+	if sandbox {
+		sandboxStr = "docker"
+	}
+	printInfo(fmt.Sprintf("Model: %s | Max iterations: %d | Sandbox: %s", model, maxIterations, sandboxStr))
 
 	if dryRun {
 		printWarn("Dry run mode - not executing")
@@ -161,7 +158,7 @@ func runAgent(cmd *cobra.Command, args []string) error {
 	defer logFile.Close()
 
 	fmt.Fprintf(logFile, "\n=== Session started %s ===\n", time.Now().Format(time.RFC3339))
-	fmt.Fprintf(logFile, "Sandbox: %s\n", sandbox)
+	fmt.Fprintf(logFile, "Sandbox: %s\n", sandboxStr)
 
 	// Main loop
 	for iteration := 1; iteration <= maxIterations; iteration++ {
@@ -195,7 +192,7 @@ func runAgent(cmd *cobra.Command, args []string) error {
 		// Write conversation header
 		fmt.Fprintf(convLog, "# Iteration %d\n\n", iteration)
 		fmt.Fprintf(convLog, "**Started:** %s\n", time.Now().Format(time.RFC3339))
-		fmt.Fprintf(convLog, "**Sandbox:** %s\n", sandbox)
+		fmt.Fprintf(convLog, "**Sandbox:** %s\n", sandboxStr)
 		fmt.Fprintf(convLog, "**Progress before:** %s\n\n", p.Progress())
 
 		fmt.Fprintf(logFile, "[%s] Iteration %d started\n", time.Now().Format("15:04:05"), iteration)
@@ -418,7 +415,7 @@ Now read .ralph/prd.json and .ralph/progress.txt, then begin work.
 `, projectRoot, p.Name, p.Description, storiesList.String())
 }
 
-func runAgentIteration(ctx context.Context, projectRoot string, p *prd.PRD, sandboxMode string, convLog *os.File) error {
+func runAgentIteration(ctx context.Context, projectRoot string, p *prd.PRD, useSandbox bool, convLog *os.File) error {
 	prompt := buildAgentPrompt(projectRoot, p)
 
 	// Write prompt to conversation log
@@ -427,24 +424,18 @@ func runAgentIteration(ctx context.Context, projectRoot string, p *prd.PRD, sand
 
 	var cmd *exec.Cmd
 
-	switch sandboxMode {
-	case "docker":
+	if useSandbox {
 		// Docker sandbox - fully isolated, safe for AFK
-		printInfo("[Docker Sandbox]")
+		printInfo("[Sandbox]")
 		cmd = exec.CommandContext(ctx, "docker", "sandbox", "run", "claude", ".",
 			"--", "--print", "--dangerously-skip-permissions", "-p", prompt)
-
-	case "none":
-		// No sandbox - interactive mode, requires permission acceptance
-		printInfo("[No Sandbox]")
+	} else {
+		// No sandbox - interactive mode
 		claudePath, err := exec.LookPath("claude")
 		if err != nil {
 			return fmt.Errorf("claude CLI not found")
 		}
 		cmd = exec.CommandContext(ctx, claudePath, "--print", "-p", prompt)
-
-	default:
-		return fmt.Errorf("invalid sandbox mode: %s", sandboxMode)
 	}
 
 	cmd.Dir = projectRoot
