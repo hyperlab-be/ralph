@@ -139,6 +139,18 @@ func TestDoctorCommand(t *testing.T) {
 	_ = err
 }
 
+func TestPrintError(t *testing.T) {
+	// Just verify it doesn't panic
+	printError("test error")
+}
+
+func TestExecute(t *testing.T) {
+	// Execute runs the root command
+	// We can't easily test this without affecting the real CLI
+	// Just verify the function exists
+	_ = Execute
+}
+
 // Helper function to validate feature name (extracted for testing)
 func validateFeatureName(feature string) error {
 	if feature == "" {
