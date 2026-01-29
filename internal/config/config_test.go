@@ -121,8 +121,8 @@ func TestFindProjectRoot(t *testing.T) {
 	os.MkdirAll(subDir, 0755)
 
 	// Create ralph.toml
-	rlToml := filepath.Join(projectDir, "ralph.toml")
-	os.WriteFile(rlToml, []byte("[project]\nname = \"test\"\n"), 0644)
+	ralphToml := filepath.Join(projectDir, "ralph.toml")
+	os.WriteFile(ralphToml, []byte("[project]\nname = \"test\"\n"), 0644)
 
 	// Find from subdirectory
 	found, err := FindProjectRoot(subDir)
@@ -178,5 +178,93 @@ model = "claude-sonnet-4-20250514"
 
 	if cfg.Hooks.Setup != "echo setup" {
 		t.Errorf("Unexpected setup hook: %s", cfg.Hooks.Setup)
+	}
+}
+
+func TestLoadProjectConfigNotFound(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	cfg, err := LoadProjectConfig(tmpDir)
+	if err != nil {
+		t.Errorf("Expected no error for missing config, got: %v", err)
+	}
+	if cfg != nil {
+		t.Error("Expected nil config for missing file")
+	}
+}
+
+func TestLoadGlobalConfig(t *testing.T) {
+	tmpDir := t.TempDir()
+	os.Setenv("RALPH_CONFIG_DIR", tmpDir)
+	defer os.Unsetenv("RALPH_CONFIG_DIR")
+
+	// Test default values when no config exists
+	cfg, err := LoadGlobalConfig()
+	if err != nil {
+		t.Fatalf("Failed to load global config: %v", err)
+	}
+
+	if cfg.Defaults.Model != "claude-sonnet-4-20250514" {
+		t.Errorf("Expected default model, got '%s'", cfg.Defaults.Model)
+	}
+
+	if cfg.Defaults.MaxIterations != 10 {
+		t.Errorf("Expected default max_iterations 10, got %d", cfg.Defaults.MaxIterations)
+	}
+}
+
+func TestLoopsFile(t *testing.T) {
+	tmpDir := t.TempDir()
+	os.Setenv("RALPH_CONFIG_DIR", tmpDir)
+	defer os.Unsetenv("RALPH_CONFIG_DIR")
+
+	expected := filepath.Join(tmpDir, "loops.json")
+	if got := LoopsFile(); got != expected {
+		t.Errorf("Expected %s, got %s", expected, got)
+	}
+}
+
+func TestGlobalConfigFile(t *testing.T) {
+	tmpDir := t.TempDir()
+	os.Setenv("RALPH_CONFIG_DIR", tmpDir)
+	defer os.Unsetenv("RALPH_CONFIG_DIR")
+
+	expected := filepath.Join(tmpDir, "config.toml")
+	if got := GlobalConfigFile(); got != expected {
+		t.Errorf("Expected %s, got %s", expected, got)
+	}
+}
+
+func TestFindProjectRootByRalphDir(t *testing.T) {
+	// Create temp directory structure with .ralph dir
+	tmpDir := t.TempDir()
+	projectDir := filepath.Join(tmpDir, "myproject")
+	ralphDir := filepath.Join(projectDir, ".ralph")
+	subDir := filepath.Join(projectDir, "src")
+	os.MkdirAll(ralphDir, 0755)
+	os.MkdirAll(subDir, 0755)
+
+	// Find from subdirectory (should find by .ralph dir)
+	found, err := FindProjectRoot(subDir)
+	if err != nil {
+		t.Fatalf("Failed to find project root: %v", err)
+	}
+
+	if found != projectDir {
+		t.Errorf("Expected %s, got %s", projectDir, found)
+	}
+}
+
+func TestGetLoopNotFound(t *testing.T) {
+	tmpDir := t.TempDir()
+	os.Setenv("RALPH_CONFIG_DIR", tmpDir)
+	defer os.Unsetenv("RALPH_CONFIG_DIR")
+
+	loop, err := GetLoop("nonexistent")
+	if err != nil {
+		t.Errorf("Expected no error, got: %v", err)
+	}
+	if loop != nil {
+		t.Error("Expected nil for nonexistent loop")
 	}
 }

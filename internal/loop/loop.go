@@ -40,7 +40,7 @@ func Start(loop *config.Loop) error {
 	}
 
 	// Build the command
-	cmd := exec.Command("rl", "run")
+	cmd := exec.Command("ralph", "run")
 	cmd.Dir = loop.Path
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr

@@ -102,8 +102,8 @@ func runNew(cmd *cobra.Command, args []string) error {
 	}
 
 	// Create .ralph directory
-	rlDir := filepath.Join(worktreePath, ".ralph")
-	os.MkdirAll(rlDir, 0755)
+	ralphDir := filepath.Join(worktreePath, ".ralph")
+	os.MkdirAll(ralphDir, 0755)
 
 	// Initialize progress file
 	progressContent := `# Progress Log
@@ -119,7 +119,7 @@ This file tracks progress across iterations.
 ## Session Log
 
 `
-	os.WriteFile(filepath.Join(rlDir, "progress.md"), []byte(progressContent), 0644)
+	os.WriteFile(filepath.Join(ralphDir, "progress.md"), []byte(progressContent), 0644)
 
 	// Run setup hook if defined
 	if cfg != nil && cfg.Hooks.Setup != "" {

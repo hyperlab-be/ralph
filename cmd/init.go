@@ -78,8 +78,8 @@ max_iterations = 10
 	}
 
 	// Create .ralph directory
-	rlDir := filepath.Join(absPath, ".ralph")
-	if err := os.MkdirAll(rlDir, 0755); err != nil {
+	ralphDir := filepath.Join(absPath, ".ralph")
+	if err := os.MkdirAll(ralphDir, 0755); err != nil {
 		return fmt.Errorf("failed to create .ralph directory: %w", err)
 	}
 
