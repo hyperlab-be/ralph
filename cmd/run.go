@@ -304,8 +304,9 @@ func runAgentIteration(ctx context.Context, projectRoot string, p *prd.PRD, outp
 	prompt := buildAgentPrompt()
 
 	// Simple prompt as argument - claude reads PRD itself
+	// Use --print for non-interactive mode (exits after response)
 	// Use unbuffer to disable output buffering for live streaming to log
-	shellCmd := fmt.Sprintf("unbuffer claude --dangerously-skip-permissions --model %s %q 2>&1 | tee -a %q",
+	shellCmd := fmt.Sprintf("unbuffer claude --dangerously-skip-permissions --print --model %s %q 2>&1 | tee -a %q",
 		model, prompt, outputLog.Name())
 
 	cmd := exec.CommandContext(ctx, "bash", "-c", shellCmd)
