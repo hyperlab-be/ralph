@@ -32,8 +32,9 @@ The agent will:
   - Move to the next story
 
 Sandbox modes provide isolation for safe operation:
-  - docker: Docker sandbox (default, recommended)
-  - mac:    macOS sandbox-exec (experimental)`,
+  - docker: Docker sandbox (default, recommended for AFK)
+  - mac:    macOS sandbox-exec (experimental)
+  - none:   No sandbox (interactive, requires permission acceptance)`,
 	RunE: runAgent,
 }
 
@@ -47,7 +48,7 @@ var (
 func init() {
 	runCmd.Flags().IntVarP(&maxIterations, "max-iterations", "m", 10, "Maximum iterations")
 	runCmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be done without executing")
-	runCmd.Flags().StringVarP(&sandbox, "sandbox", "s", "docker", "Sandbox mode: docker, mac")
+	runCmd.Flags().StringVarP(&sandbox, "sandbox", "s", "docker", "Sandbox mode: docker, mac, none")
 	runCmd.Flags().BoolVar(&once, "once", false, "Run single iteration (HITL mode)")
 	rootCmd.AddCommand(runCmd)
 }
@@ -104,8 +105,8 @@ func runAgent(cmd *cobra.Command, args []string) error {
 	}
 
 	// Validate sandbox
-	if sandbox != "docker" && sandbox != "mac" {
-		return fmt.Errorf("invalid sandbox mode: %s (use: docker, mac)", sandbox)
+	if sandbox != "docker" && sandbox != "mac" && sandbox != "none" {
+		return fmt.Errorf("invalid sandbox mode: %s (use: docker, mac, none)", sandbox)
 	}
 
 	// Check docker sandbox availability
@@ -443,6 +444,15 @@ func runAgentIteration(ctx context.Context, projectRoot string, p *prd.PRD, sand
 		}
 		cmd = exec.CommandContext(ctx, "sandbox-exec", "-p", "(version 1)(allow default)",
 			claudePath, "--print", "--dangerously-skip-permissions", "-p", prompt)
+
+	case "none":
+		// No sandbox - interactive mode, requires permission acceptance
+		printInfo("[No Sandbox]")
+		claudePath, err := exec.LookPath("claude")
+		if err != nil {
+			return fmt.Errorf("claude CLI not found")
+		}
+		cmd = exec.CommandContext(ctx, claudePath, "--print", "-p", prompt)
 
 	default:
 		return fmt.Errorf("invalid sandbox mode: %s", sandboxMode)
