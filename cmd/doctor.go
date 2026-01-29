@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os/exec"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -46,6 +47,22 @@ func runDoctor(cmd *cobra.Command, args []string) error {
 			printSuccess(fmt.Sprintf("claude: %s", string(out[:len(out)-1])))
 		} else {
 			printSuccess(fmt.Sprintf("claude: found at %s", claudePath))
+		}
+	}
+
+	// Check gh CLI (for PR creation)
+	if _, err := exec.LookPath("gh"); err != nil {
+		printWarn("gh: not found (optional, needed for auto PR creation)")
+		fmt.Println("  Install: https://cli.github.com")
+	} else {
+		out, _ := exec.Command("gh", "--version").Output()
+		lines := string(out)
+		if idx := len(lines); idx > 0 {
+			// Get first line only
+			if newline := strings.Index(lines, "\n"); newline > 0 {
+				lines = lines[:newline]
+			}
+			printSuccess(fmt.Sprintf("gh: %s", lines))
 		}
 	}
 

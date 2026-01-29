@@ -129,7 +129,17 @@ Iteration 2/10: Story 4 - Session management
 
 ✓ All stories complete!
 ℹ Final progress: 4/4 stories
+ℹ All stories complete! Creating pull request...
+ℹ Pushing branch...
+ℹ Creating pull request...
+✓ Pull request created!
+https://github.com/org/repo/pull/123
 ```
+
+When all stories are complete, ralph automatically:
+1. Commits any uncommitted changes
+2. Pushes the branch
+3. Creates a pull request with a summary of completed stories
 
 Options:
 
@@ -287,6 +297,7 @@ projects_dir = "~/Code"
 - Go 1.21+
 - Git
 - [Claude CLI](https://github.com/anthropics/claude-code) (`npm install -g @anthropic-ai/claude-code`)
+- [GitHub CLI](https://cli.github.com) (optional, for auto PR creation)
 
 ## License
 
