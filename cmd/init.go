@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -81,6 +82,20 @@ max_iterations = 10
 	ralphDir := filepath.Join(absPath, ".ralph")
 	if err := os.MkdirAll(ralphDir, 0755); err != nil {
 		return fmt.Errorf("failed to create .ralph directory: %w", err)
+	}
+
+	// Add ralph artifacts to .gitignore if not already present
+	gitignorePath := filepath.Join(absPath, ".gitignore")
+	gitignoreEntry := "\n# Ralph tooling\n.ralph/\nprd.json\n"
+
+	existingGitignore, _ := os.ReadFile(gitignorePath)
+	if !strings.Contains(string(existingGitignore), ".ralph/") {
+		f, err := os.OpenFile(gitignorePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		if err == nil {
+			f.WriteString(gitignoreEntry)
+			f.Close()
+			printInfo("Added .ralph/ to .gitignore")
+		}
 	}
 
 	printSuccess(fmt.Sprintf("Initialized ralph in %s", absPath))

@@ -220,10 +220,15 @@ func createPullRequest(projectRoot string, p *prd.PRD) error {
 	statusCmd.Dir = projectRoot
 	statusOut, _ := statusCmd.Output()
 	if len(statusOut) > 0 {
-		// Add and commit
-		addCmd := exec.Command("git", "add", "-A")
+		// Add tracked files only (excludes .ralph/, prd.json if in .gitignore)
+		addCmd := exec.Command("git", "add", "-u")
 		addCmd.Dir = projectRoot
 		addCmd.Run()
+
+		// Also add new files except ralph artifacts
+		addNewCmd := exec.Command("git", "add", "--all", "--", ".", ":!.ralph/", ":!.ralph-tui/", ":!.rl/", ":!prd.json", ":!.ralph-*")
+		addNewCmd.Dir = projectRoot
+		addNewCmd.Run()
 
 		commitCmd := exec.Command("git", "commit", "-m", fmt.Sprintf("feat: complete %s", p.Name))
 		commitCmd.Dir = projectRoot
