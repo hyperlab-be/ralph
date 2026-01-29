@@ -202,20 +202,13 @@ $ ralph status
 
 ### `ralph logs`
 
-View conversation logs.
+View logs.
 
 ```bash
 $ ralph logs myproject-user-auth      # Progress summary
 $ ralph logs -f myproject-user-auth   # Follow output in real-time
 $ ralph logs --session                # Technical session log
 ```
-
-Full conversation logs are stored in `.ralph/conversations/`:
-- `iteration-1.md`
-- `iteration-2.md`
-- etc.
-
-Each log contains the full prompt and agent output for debugging.
 
 ---
 
@@ -310,10 +303,7 @@ myproject/
     ├── prd.json            # PRD with stories
     ├── progress.txt        # Progress tracking between iterations
     ├── session.log         # Session summary
-    └── conversations/      # Full conversation logs
-        ├── iteration-1.md
-        ├── iteration-2.md
-        └── ...
+    └── output.log          # Live output (for ralph logs -f)
 ```
 
 ## Requirements

@@ -88,14 +88,6 @@ func runAgent(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	// Create conversations directory
-	conversationsDir := filepath.Join(projectRoot, ".ralph", "conversations")
-	os.MkdirAll(conversationsDir, 0755)
-
-	// Clear context.md at start of new loop (fresh start, no stale context)
-	contextFile := filepath.Join(projectRoot, ".ralph", "context.md")
-	os.WriteFile(contextFile, []byte(""), 0644)
-
 	// Update loop status
 	if loop == nil {
 		loop = &config.Loop{
@@ -158,20 +150,6 @@ func runAgent(cmd *cobra.Command, args []string) error {
 		printInfo(fmt.Sprintf("Progress: %s", p.Progress()))
 		fmt.Println(strings.Repeat("━", 60))
 
-		// Create conversation log for this iteration
-		convLogPath := filepath.Join(conversationsDir, fmt.Sprintf("iteration-%d.md", iteration))
-		convLog, err := os.Create(convLogPath)
-		if err != nil {
-			printError(fmt.Sprintf("Failed to create conversation log: %v", err))
-			continue
-		}
-
-		// Write conversation header
-		fmt.Fprintf(convLog, "# Iteration %d\n\n", iteration)
-		fmt.Fprintf(convLog, "**Started:** %s\n", time.Now().Format(time.RFC3339))
-		fmt.Fprintf(convLog, "**Model:** %s\n", model)
-		fmt.Fprintf(convLog, "**Progress before:** %s\n\n", p.Progress())
-
 		fmt.Fprintf(logFile, "[%s] Iteration %d started\n", time.Now().Format("15:04:05"), iteration)
 
 		// Write to live output log
@@ -180,18 +158,14 @@ func runAgent(cmd *cobra.Command, args []string) error {
 		outputFile.Sync()
 
 		// Run agent iteration
-		err = runAgentIteration(ctx, projectRoot, p, convLog, outputFile)
+		err = runAgentIteration(ctx, projectRoot, p, outputFile)
 
-		// Write conversation footer
-		p, _ = prd.Load(projectRoot) // Reload to get updated progress
+		// Reload to get updated progress
+		p, _ = prd.Load(projectRoot)
 		progressAfter := "unknown"
 		if p != nil {
 			progressAfter = p.Progress()
 		}
-		fmt.Fprintf(convLog, "\n\n---\n")
-		fmt.Fprintf(convLog, "**Ended:** %s\n", time.Now().Format(time.RFC3339))
-		fmt.Fprintf(convLog, "**Progress after:** %s\n", progressAfter)
-		convLog.Close()
 
 		if err != nil {
 			if ctx.Err() != nil {
@@ -385,12 +359,8 @@ Now read .ralph/prd.json and .ralph/progress.txt, then begin work.
 `, projectRoot, p.Name, p.Description, storiesList.String())
 }
 
-func runAgentIteration(ctx context.Context, projectRoot string, p *prd.PRD, convLog *os.File, outputLog *os.File) error {
+func runAgentIteration(ctx context.Context, projectRoot string, p *prd.PRD, outputLog *os.File) error {
 	prompt := buildAgentPrompt(projectRoot, p)
-
-	// Write prompt to conversation log (not to output.log - too verbose)
-	fmt.Fprintf(convLog, "## Prompt\n\n```\n%s\n```\n\n", prompt)
-	fmt.Fprintf(convLog, "## Agent Output\n\n```\n")
 
 	claudePath, err := exec.LookPath("claude")
 	if err != nil {
@@ -432,7 +402,7 @@ func runAgentIteration(ctx context.Context, projectRoot string, p *prd.PRD, conv
 		stdin.Close()
 	}()
 
-	// Read and stream output to all destinations
+	// Read and stream output to stdout and output log
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
@@ -441,7 +411,6 @@ func runAgentIteration(ctx context.Context, projectRoot string, p *prd.PRD, conv
 			n, err := stdout.Read(buf)
 			if n > 0 {
 				os.Stdout.Write(buf[:n])
-				convLog.Write(buf[:n])
 				outputLog.Write(buf[:n])
 				outputLog.Sync() // Flush for live tailing
 			}
@@ -458,7 +427,6 @@ func runAgentIteration(ctx context.Context, projectRoot string, p *prd.PRD, conv
 			n, err := stderr.Read(buf)
 			if n > 0 {
 				os.Stderr.Write(buf[:n])
-				convLog.Write(buf[:n])
 				outputLog.Write(buf[:n])
 				outputLog.Sync()
 			}
@@ -473,8 +441,6 @@ func runAgentIteration(ctx context.Context, projectRoot string, p *prd.PRD, conv
 
 	// Wait for stdout reader to finish
 	<-done
-
-	fmt.Fprintf(convLog, "```\n")
 
 	return err
 }

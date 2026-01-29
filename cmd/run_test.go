@@ -184,40 +184,6 @@ func TestRunAgentNotInProject(t *testing.T) {
 	}
 }
 
-func TestConversationsDirectoryCreated(t *testing.T) {
-	tmpDir := t.TempDir()
-
-	// Setup project structure
-	os.MkdirAll(filepath.Join(tmpDir, ".ralph"), 0755)
-	os.WriteFile(filepath.Join(tmpDir, "ralph.toml"), []byte("[project]\nname = \"test\"\n"), 0644)
-
-	prdData := `{
-		"name": "Test Feature",
-		"userStories": [
-			{"id": "1", "title": "Test story", "passes": false}
-		]
-	}`
-	os.WriteFile(filepath.Join(tmpDir, ".ralph", "prd.json"), []byte(prdData), 0644)
-
-	oldWd, _ := os.Getwd()
-	os.Chdir(tmpDir)
-	defer os.Chdir(oldWd)
-
-	// Dry-run exits early before creating conversations directory
-	// This is expected behavior - conversations are only created when actually running
-	dryRun = true
-	defer func() { dryRun = false }()
-
-	_ = runAgent(runCmd, []string{})
-
-	// In dry-run mode, conversations directory is created before the dry-run check
-	// was moved. This test verifies the directory creation happens.
-	convDir := filepath.Join(tmpDir, ".ralph", "conversations")
-	// Note: In current implementation, dry-run exits before dir creation
-	// This is acceptable behavior
-	_ = convDir
-}
-
 func TestOnceFlag(t *testing.T) {
 	// Test that --once sets maxIterations to 1
 	oldMax := maxIterations
@@ -268,14 +234,12 @@ func TestRunAgentIterationContextCanceled(t *testing.T) {
 		},
 	}
 
-	// Create temp files for logs
-	convLog, _ := os.CreateTemp(tmpDir, "conv-*.md")
-	defer convLog.Close()
+	// Create temp file for output log
 	outputLog, _ := os.CreateTemp(tmpDir, "output-*.log")
 	defer outputLog.Close()
 
 	// This should return quickly due to canceled context
-	err := runAgentIteration(ctx, tmpDir, p, convLog, outputLog)
+	err := runAgentIteration(ctx, tmpDir, p, outputLog)
 	// Error is expected since context is canceled
 	_ = err
 }
