@@ -2,6 +2,10 @@ package cmd
 
 import (
 	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/hyperlab-be/ralph/internal/config"
 	"github.com/hyperlab-be/ralph/internal/loop"
@@ -10,22 +14,41 @@ import (
 )
 
 var statusCmd = &cobra.Command{
-	Use:   "status [name]",
-	Short: "Show status of loops",
-	Long:  `Show the status of all registered loops or a specific loop.`,
-	Args:  cobra.MaximumNArgs(1),
-	RunE:  runStatus,
+	Use:     "status [name]",
+	Aliases: []string{"s"},
+	Short:   "Show status of loops",
+	Long:    `Show the status of all registered loops or a specific loop.`,
+	Args:    cobra.MaximumNArgs(1),
+	RunE:    runStatus,
 }
 
+var watchStatus bool
+var watchInterval int
+
 func init() {
+	statusCmd.Flags().BoolVarP(&watchStatus, "watch", "w", false, "Auto-refresh status")
+	statusCmd.Flags().IntVarP(&watchInterval, "interval", "i", 5, "Refresh interval in seconds (with --watch)")
 	rootCmd.AddCommand(statusCmd)
 }
 
 func runStatus(cmd *cobra.Command, args []string) error {
+	filterName := ""
+	if len(args) > 0 {
+		filterName = args[0]
+	}
+
+	if watchStatus {
+		return runStatusWatch(filterName)
+	}
+
+	return renderStatus(filterName)
+}
+
+func renderStatus(filterName string) error {
 	// Header
 	fmt.Println("\033[1m\033[36m")
 	fmt.Println("╔═══════════════════════════════════════════════════════════╗")
-	fmt.Println("║                 🤖 ralph - Loop Status                       ║")
+	fmt.Println("║                 🤖 ralph - Loop Status                    ║")
 	fmt.Println("╚═══════════════════════════════════════════════════════════╝")
 	fmt.Println("\033[0m")
 
@@ -44,11 +67,6 @@ func runStatus(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	filterName := ""
-	if len(args) > 0 {
-		filterName = args[0]
-	}
-
 	for _, l := range loops {
 		if filterName != "" && l.Name != filterName {
 			continue
@@ -58,6 +76,34 @@ func runStatus(cmd *cobra.Command, args []string) error {
 	}
 
 	return nil
+}
+
+func runStatusWatch(filterName string) error {
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+
+	ticker := time.NewTicker(time.Duration(watchInterval) * time.Second)
+	defer ticker.Stop()
+
+	// Initial render
+	renderStatusScreen(filterName)
+
+	for {
+		select {
+		case <-ticker.C:
+			renderStatusScreen(filterName)
+		case <-sigChan:
+			fmt.Println("\nExiting...")
+			return nil
+		}
+	}
+}
+
+func renderStatusScreen(filterName string) {
+	// Clear screen
+	fmt.Print("\033[2J\033[H")
+	renderStatus(filterName)
+	fmt.Printf("\n\033[2m[Refreshing every %ds - Ctrl+C to exit]\033[0m\n", watchInterval)
 }
 
 func printLoopStatus(l *config.Loop) {
@@ -93,14 +139,4 @@ func printLoopStatus(l *config.Loop) {
 	}
 
 	fmt.Println()
-}
-
-// Aliases
-func init() {
-	rootCmd.AddCommand(&cobra.Command{
-		Use:   "s",
-		Short: "Alias for status",
-		RunE:  runStatus,
-		Args:  cobra.MaximumNArgs(1),
-	})
 }

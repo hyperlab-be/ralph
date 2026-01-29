@@ -161,6 +161,14 @@ $ ralph status
    Path: /Users/dev/myproject-api-v2
 ```
 
+With auto-refresh (like `watch`):
+
+```bash
+$ ralph status --watch
+# or
+$ ralph status -w -i 3  # refresh every 3 seconds
+```
+
 ---
 
 ### `ralph logs`
@@ -193,26 +201,6 @@ $ ralph list
 🟢 myproject-user-auth
 ⚫ myproject-api-v2
 ⚫ other-project-feature
-```
-
----
-
-### `ralph dashboard`
-
-Interactive dashboard with auto-refresh.
-
-```bash
-$ ralph dashboard
-╔═══════════════════════════════════════════════════════════╗
-║              🤖 ralph - Live Dashboard                    ║
-╚═══════════════════════════════════════════════════════════╝
-
-🟢 myproject-user-auth
-   Status: running
-   Progress: 3/4 stories
-   Path: /Users/dev/myproject-user-auth
-
-[Refreshing every 5s - Press Ctrl+C to exit]
 ```
 
 ---
