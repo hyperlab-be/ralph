@@ -66,11 +66,25 @@ func runAgent(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("loop is already running")
 	}
 
-	// Load config
-	cfg, _ := config.LoadProjectConfig(projectRoot)
-	model := "claude-sonnet-4-20250514"
-	if cfg != nil && cfg.Agent.Model != "" {
-		model = cfg.Agent.Model
+	// Load config (project config overrides global config)
+	globalCfg, _ := config.LoadGlobalConfig()
+	projectCfg, _ := config.LoadProjectConfig(projectRoot)
+
+	model := "claude-sonnet-4-20250514" // ultimate fallback
+	if globalCfg != nil && globalCfg.Defaults.Model != "" {
+		model = globalCfg.Defaults.Model
+	}
+	if projectCfg != nil && projectCfg.Agent.Model != "" {
+		model = projectCfg.Agent.Model
+	}
+
+	// Use config max_iterations if flag wasn't explicitly set
+	if !cmd.Flags().Changed("max-iterations") {
+		if projectCfg != nil && projectCfg.Agent.MaxIterations > 0 {
+			maxIterations = projectCfg.Agent.MaxIterations
+		} else if globalCfg != nil && globalCfg.Defaults.MaxIterations > 0 {
+			maxIterations = globalCfg.Defaults.MaxIterations
+		}
 	}
 
 	printInfo(fmt.Sprintf("Starting agent loop for %s", worktreeName))

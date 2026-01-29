@@ -43,7 +43,9 @@ func runStop(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to get loop: %w", err)
 	}
 	if loop == nil {
-		return fmt.Errorf("loop not found: %s", loopName)
+		fmt.Fprintf(os.Stderr, "Loop not found: %s\n\nAvailable loops:\n", loopName)
+		printAvailableLoops()
+		return fmt.Errorf("loop not found")
 	}
 
 	// Check if running

@@ -34,6 +34,17 @@ func init() {
 func runNew(cmd *cobra.Command, args []string) error {
 	feature := args[0]
 
+	// Validate feature name
+	if feature == "" {
+		return fmt.Errorf("feature name cannot be empty")
+	}
+	for _, char := range feature {
+		if !((char >= 'a' && char <= 'z') || (char >= 'A' && char <= 'Z') ||
+			(char >= '0' && char <= '9') || char == '-' || char == '_') {
+			return fmt.Errorf("feature name can only contain letters, numbers, hyphens and underscores")
+		}
+	}
+
 	// Find project root
 	cwd, _ := os.Getwd()
 	projectRoot, err := config.FindProjectRoot(cwd)

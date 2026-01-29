@@ -27,10 +27,15 @@ var prdCreateCmd = &cobra.Command{
 }
 
 var prdAddCmd = &cobra.Command{
-	Use:   "add",
+	Use:   "add [title]",
 	Short: "Add a story to the PRD",
+	Args:  cobra.MaximumNArgs(1),
 	RunE:  runPrdAdd,
 }
+
+var storyTitle string
+var storyDesc string
+var storyCriteria []string
 
 var prdEditCmd = &cobra.Command{
 	Use:   "edit",
@@ -39,6 +44,10 @@ var prdEditCmd = &cobra.Command{
 }
 
 func init() {
+	prdAddCmd.Flags().StringVarP(&storyTitle, "title", "t", "", "Story title")
+	prdAddCmd.Flags().StringVarP(&storyDesc, "description", "d", "", "Story description")
+	prdAddCmd.Flags().StringArrayVarP(&storyCriteria, "criteria", "c", nil, "Acceptance criteria (can be repeated)")
+
 	prdCmd.AddCommand(prdCreateCmd)
 	prdCmd.AddCommand(prdAddCmd)
 	prdCmd.AddCommand(prdEditCmd)
@@ -147,28 +156,52 @@ func runPrdAdd(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("no PRD found. Create one with 'ralph prd create'")
 	}
 
-	reader := bufio.NewReader(os.Stdin)
-
-	fmt.Println("\033[36mAdding new story...\033[0m")
-	fmt.Println()
-
-	fmt.Print("Title: ")
-	title, _ := reader.ReadString('\n')
-	title = strings.TrimSpace(title)
-
-	fmt.Print("Description: ")
-	description, _ := reader.ReadString('\n')
-	description = strings.TrimSpace(description)
-
-	fmt.Println("Acceptance criteria (one per line, empty line to finish):")
+	var title, description string
 	var criteria []string
-	for {
-		line, _ := reader.ReadString('\n')
-		line = strings.TrimSpace(line)
-		if line == "" {
-			break
+
+	// Check if title provided as arg or flag
+	if len(args) > 0 {
+		title = args[0]
+	} else if storyTitle != "" {
+		title = storyTitle
+	}
+
+	if storyDesc != "" {
+		description = storyDesc
+	}
+
+	if len(storyCriteria) > 0 {
+		criteria = storyCriteria
+	}
+
+	// Interactive mode if title not provided
+	if title == "" {
+		reader := bufio.NewReader(os.Stdin)
+
+		fmt.Println("\033[36mAdding new story...\033[0m")
+		fmt.Println()
+
+		fmt.Print("Title: ")
+		title, _ = reader.ReadString('\n')
+		title = strings.TrimSpace(title)
+
+		fmt.Print("Description: ")
+		description, _ = reader.ReadString('\n')
+		description = strings.TrimSpace(description)
+
+		fmt.Println("Acceptance criteria (one per line, empty line to finish):")
+		for {
+			line, _ := reader.ReadString('\n')
+			line = strings.TrimSpace(line)
+			if line == "" {
+				break
+			}
+			criteria = append(criteria, line)
 		}
-		criteria = append(criteria, line)
+	}
+
+	if title == "" {
+		return fmt.Errorf("story title is required")
 	}
 
 	story := prd.Story{
@@ -184,7 +217,7 @@ func runPrdAdd(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to save PRD: %w", err)
 	}
 
-	printSuccess(fmt.Sprintf("Story %d added", len(p.UserStories)))
+	printSuccess(fmt.Sprintf("Added story %s: %s", p.UserStories[len(p.UserStories)-1].ID, title))
 
 	return nil
 }

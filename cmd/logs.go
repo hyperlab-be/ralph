@@ -40,7 +40,9 @@ func runLogs(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("failed to get loop: %w", err)
 		}
 		if loop == nil {
-			return fmt.Errorf("loop not found: %s", loopName)
+			fmt.Fprintf(os.Stderr, "Loop not found: %s\n\nAvailable loops:\n", loopName)
+			printAvailableLoops()
+			return fmt.Errorf("loop not found")
 		}
 		projectRoot = loop.Path
 	} else {
@@ -48,7 +50,11 @@ func runLogs(cmd *cobra.Command, args []string) error {
 		var err error
 		projectRoot, err = config.FindProjectRoot(cwd)
 		if err != nil {
-			return fmt.Errorf("not in a ralph project and no loop name provided")
+			fmt.Fprintln(os.Stderr, "Not in a ralph project. Specify a loop name:")
+			fmt.Fprintln(os.Stderr, "")
+			fmt.Fprintln(os.Stderr, "Available loops:")
+			printAvailableLoops()
+			return fmt.Errorf("no loop specified")
 		}
 	}
 

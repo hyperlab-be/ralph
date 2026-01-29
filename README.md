@@ -86,11 +86,26 @@ $ ralph prd create
 ✓ Created PRD with 4 stories
 ```
 
-Add a single story:
+Add a story with flags (non-interactive):
 
 ```bash
-$ ralph prd add "OAuth integration" --criteria "Support Google login" --criteria "Support GitHub login"
-✓ Added story: OAuth integration
+$ ralph prd add "OAuth integration" -c "Support Google login" -c "Support GitHub login"
+✓ Added story 5: OAuth integration
+```
+
+Or interactively:
+
+```bash
+$ ralph prd add
+Adding new story...
+
+Title: Session management
+Description: Handle user sessions securely
+Acceptance criteria (one per line, empty line to finish):
+Sessions expire after 24h
+Refresh tokens supported
+
+✓ Added story 6: Session management
 ```
 
 ---
@@ -232,6 +247,23 @@ With branch deletion:
 $ ralph cleanup myproject-user-auth --delete-branch
 ✓ Removed worktree
 ✓ Deleted branch feature/user-auth
+```
+
+---
+
+### `ralph doctor`
+
+Check that all required dependencies are installed.
+
+```bash
+$ ralph doctor
+Checking dependencies...
+
+✓ git: git version 2.39.0
+✓ claude: found at /usr/local/bin/claude
+⚠ mysql: not found (optional, needed for database hooks)
+
+✓ All required dependencies installed!
 ```
 
 ---

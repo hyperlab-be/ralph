@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/hyperlab-be/ralph/internal/config"
 	"github.com/spf13/cobra"
 )
 
@@ -45,4 +46,19 @@ func printInfo(msg string) {
 
 func printWarn(msg string) {
 	fmt.Fprintf(os.Stdout, "\033[33m⚠\033[0m %s\n", msg)
+}
+
+func printAvailableLoops() {
+	registry, err := config.LoadLoops()
+	if err != nil || len(registry.Loops) == 0 {
+		fmt.Fprintln(os.Stderr, "  (no loops registered)")
+		return
+	}
+	for _, loop := range registry.Loops {
+		status := "⚫"
+		if loop.Status == "running" {
+			status = "🟢"
+		}
+		fmt.Fprintf(os.Stderr, "  %s %s\n", status, loop.Name)
+	}
 }
