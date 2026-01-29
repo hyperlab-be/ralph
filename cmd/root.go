@@ -10,9 +10,9 @@ import (
 var Version = "0.1.0"
 
 var rootCmd = &cobra.Command{
-	Use:   "rl",
-	Short: "Ralph Loop - AI-powered development loop manager",
-	Long: `rl is a CLI tool for managing AI-powered development loops.
+	Use:   "ralph",
+	Short: "AI-powered development loop manager",
+	Long: `ralph is a CLI tool for managing AI-powered development loops.
 
 It helps you:
   - Create and manage git worktrees for features

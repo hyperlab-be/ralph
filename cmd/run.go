@@ -12,8 +12,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/hyperlab/rl/internal/config"
-	"github.com/hyperlab/rl/internal/prd"
+	"github.com/hyperlab/ralph/internal/config"
+	"github.com/hyperlab/ralph/internal/prd"
 	"github.com/spf13/cobra"
 )
 

@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hyperlab/rl/internal/config"
+	"github.com/hyperlab/ralph/internal/config"
 	"github.com/spf13/cobra"
 )
 

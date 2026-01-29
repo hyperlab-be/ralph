@@ -3,7 +3,7 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/hyperlab/rl/internal/loop"
+	"github.com/hyperlab/ralph/internal/loop"
 	"github.com/spf13/cobra"
 )
 

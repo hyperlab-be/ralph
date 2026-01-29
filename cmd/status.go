@@ -3,9 +3,9 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/hyperlab/rl/internal/config"
-	"github.com/hyperlab/rl/internal/loop"
-	"github.com/hyperlab/rl/internal/prd"
+	"github.com/hyperlab/ralph/internal/config"
+	"github.com/hyperlab/ralph/internal/loop"
+	"github.com/hyperlab/ralph/internal/prd"
 	"github.com/spf13/cobra"
 )
 

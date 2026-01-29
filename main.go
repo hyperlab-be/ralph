@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/hyperlab/rl/cmd"
+	"github.com/hyperlab/ralph/cmd"
 )
 
 func main() {

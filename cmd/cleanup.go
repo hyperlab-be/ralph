@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/hyperlab/rl/internal/config"
+	"github.com/hyperlab/ralph/internal/config"
 	"github.com/spf13/cobra"
 )
 

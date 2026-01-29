@@ -1,4 +1,4 @@
-# rl - Ralph Loop Manager
+# ralph
 
 CLI tool for managing AI-powered development loops with [ralph-tui](https://github.com/m-ods/ralph-tui).
 
@@ -13,14 +13,14 @@ CLI tool for managing AI-powered development loops with [ralph-tui](https://gith
 ## Installation
 
 ```bash
-go install github.com/hyperlab/rl@latest
+go install github.com/hyperlab/ralph@latest
 ```
 
 Or build from source:
 
 ```bash
-git clone https://github.com/hyperlab/rl.git
-cd rl
+git clone https://github.com/hyperlab/ralph.git
+cd ralph
 go build -o rl .
 ```
 
