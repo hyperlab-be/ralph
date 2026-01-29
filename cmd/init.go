@@ -53,19 +53,17 @@ prefix = "%s"
 
 [hooks]
 # Commands to run after creating a worktree
-# Available variables: $DB_NAME, $WORKTREE_PATH, $FEATURE
+# Available variables: $WORKTREE_PATH, $FEATURE
 setup = """
-# Example for Laravel:
+# Example:
 # cp .env.example .env
-# sed -i '' "s/DB_DATABASE=.*/DB_DATABASE=${DB_NAME}/" .env
-# mysql -e "CREATE DATABASE ${DB_NAME}"
-# php artisan migrate
+# npm install
 """
 
 # Commands to run before removing a worktree
 cleanup = """
-# Example for Laravel:
-# mysql -e "DROP DATABASE IF EXISTS ${DB_NAME}"
+# Example:
+# rm -rf node_modules
 """
 
 [agent]

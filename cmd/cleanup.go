@@ -101,14 +101,7 @@ func runCleanup(cmd *cobra.Command, args []string) error {
 	if cfg != nil && cfg.Hooks.Cleanup != "" {
 		printInfo("Running cleanup hook...")
 
-		// Set environment variables
-		var dbName string
-		if loop != nil {
-			dbName = fmt.Sprintf("%s_%s", strings.ReplaceAll(loop.Project, "-", "_"), strings.ReplaceAll(loop.Feature, "-", "_"))
-		}
-
 		env := os.Environ()
-		env = append(env, fmt.Sprintf("DB_NAME=%s", dbName))
 		env = append(env, fmt.Sprintf("WORKTREE_PATH=%s", worktreePath))
 		if loop != nil {
 			env = append(env, fmt.Sprintf("FEATURE=%s", loop.Feature))

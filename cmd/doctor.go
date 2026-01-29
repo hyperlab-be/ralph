@@ -49,14 +49,6 @@ func runDoctor(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// Check mysql (optional)
-	if _, err := exec.LookPath("mysql"); err != nil {
-		printWarn("mysql: not found (optional, needed for database hooks)")
-	} else {
-		out, _ := exec.Command("mysql", "--version").Output()
-		printSuccess(fmt.Sprintf("mysql: %s", string(out[:len(out)-1])))
-	}
-
 	fmt.Println()
 
 	if allGood {

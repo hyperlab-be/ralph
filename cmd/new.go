@@ -5,7 +5,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/hyperlab-be/ralph/internal/config"
@@ -126,10 +125,7 @@ This file tracks progress across iterations.
 	if cfg != nil && cfg.Hooks.Setup != "" {
 		printInfo("Running setup hook...")
 
-		// Set environment variables
-		dbName := fmt.Sprintf("%s_%s", strings.ReplaceAll(projectName, "-", "_"), strings.ReplaceAll(feature, "-", "_"))
 		env := os.Environ()
-		env = append(env, fmt.Sprintf("DB_NAME=%s", dbName))
 		env = append(env, fmt.Sprintf("WORKTREE_PATH=%s", worktreePath))
 		env = append(env, fmt.Sprintf("FEATURE=%s", feature))
 

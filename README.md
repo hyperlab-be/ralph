@@ -247,7 +247,6 @@ Checking dependencies...
 
 ✓ git: git version 2.39.0
 ✓ claude: found at /usr/local/bin/claude
-⚠ mysql: not found (optional, needed for database hooks)
 
 ✓ All required dependencies installed!
 ```
@@ -288,7 +287,6 @@ projects_dir = "~/Code"
 - Go 1.21+
 - Git
 - [Claude CLI](https://github.com/anthropics/claude-code) (`npm install -g @anthropic-ai/claude-code`)
-- MySQL (optional, for database provisioning via hooks)
 
 ## License
 
