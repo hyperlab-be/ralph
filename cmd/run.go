@@ -362,86 +362,34 @@ Now read .ralph/prd.json and .ralph/progress.txt, then begin work.
 func runAgentIteration(ctx context.Context, projectRoot string, p *prd.PRD, outputLog *os.File) error {
 	prompt := buildAgentPrompt(projectRoot, p)
 
-	claudePath, err := exec.LookPath("claude")
+	// Write prompt to temp file
+	promptFile, err := os.CreateTemp("", "ralph-prompt-*.txt")
 	if err != nil {
-		return fmt.Errorf("claude CLI not found")
+		return fmt.Errorf("failed to create prompt file: %w", err)
 	}
+	defer os.Remove(promptFile.Name())
 
-	// Always run with --dangerously-skip-permissions for autonomous operation
-	cmd := exec.CommandContext(ctx, claudePath,
-		"--dangerously-skip-permissions",
-		"--model", model)
+	if _, err := promptFile.WriteString(prompt); err != nil {
+		return fmt.Errorf("failed to write prompt: %w", err)
+	}
+	promptFile.Close()
 
+	// Use bash to pipe prompt to claude and tee output
+	// This ensures proper output streaming
+	shellCmd := fmt.Sprintf(
+		"cat %s | claude --dangerously-skip-permissions --model %s 2>&1 | tee -a %s",
+		promptFile.Name(),
+		model,
+		outputLog.Name(),
+	)
+
+	cmd := exec.CommandContext(ctx, "bash", "-c", shellCmd)
 	cmd.Dir = projectRoot
 	cmd.Env = os.Environ()
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
 
-	// Set up stdin pipe for prompt
-	stdin, err := cmd.StdinPipe()
-	if err != nil {
-		return fmt.Errorf("failed to create stdin pipe: %w", err)
-	}
-
-	// Set up stdout/stderr pipes
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		return fmt.Errorf("failed to create stdout pipe: %w", err)
-	}
-	stderr, err := cmd.StderrPipe()
-	if err != nil {
-		return fmt.Errorf("failed to create stderr pipe: %w", err)
-	}
-
-	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("failed to start agent: %w", err)
-	}
-
-	// Write prompt to stdin and close
-	go func() {
-		stdin.Write([]byte(prompt))
-		stdin.Close()
-	}()
-
-	// Read and stream output to stdout and output log
-	done := make(chan struct{})
-	go func() {
-		defer close(done)
-		buf := make([]byte, 4096)
-		for {
-			n, err := stdout.Read(buf)
-			if n > 0 {
-				os.Stdout.Write(buf[:n])
-				outputLog.Write(buf[:n])
-				outputLog.Sync() // Flush for live tailing
-			}
-			if err != nil {
-				break
-			}
-		}
-	}()
-
-	// Also capture stderr
-	go func() {
-		buf := make([]byte, 4096)
-		for {
-			n, err := stderr.Read(buf)
-			if n > 0 {
-				os.Stderr.Write(buf[:n])
-				outputLog.Write(buf[:n])
-				outputLog.Sync()
-			}
-			if err != nil {
-				break
-			}
-		}
-	}()
-
-	// Wait for command to finish
-	err = cmd.Wait()
-
-	// Wait for stdout reader to finish
-	<-done
-
-	return err
+	return cmd.Run()
 }
 
 func findStory(p *prd.PRD, id string) *prd.Story {
