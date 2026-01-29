@@ -31,7 +31,7 @@ The agent will:
   - Commit changes and mark the story complete
   - Move to the next story
 
-Use --sandbox (-s) to run in a Docker sandbox for safe AFK operation.`,
+Use --sandbox to run in a Docker sandbox for safe AFK operation.`,
 	RunE: runAgent,
 }
 
