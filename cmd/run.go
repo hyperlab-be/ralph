@@ -45,7 +45,7 @@ var (
 func init() {
 	runCmd.Flags().IntVarP(&maxIterations, "max-iterations", "m", 10, "Maximum iterations")
 	runCmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be done without executing")
-	runCmd.Flags().BoolVarP(&sandbox, "sandbox", "s", false, "Run in Docker sandbox (recommended for AFK)")
+	runCmd.Flags().BoolVar(&sandbox, "sandbox", false, "Run in Docker sandbox (recommended for AFK)")
 	runCmd.Flags().BoolVar(&once, "once", false, "Run single iteration (HITL mode)")
 	rootCmd.AddCommand(runCmd)
 }
