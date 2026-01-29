@@ -14,3 +14,7 @@ Thumbs.db
 # Test artifacts
 coverage.out
 *.test
+
+# Ralph tooling
+.ralph/
+prd.json

@@ -13,9 +13,14 @@ func TestRunLogsNoArgs(t *testing.T) {
 	os.Setenv("RALPH_CONFIG_DIR", tmpDir)
 	defer os.Unsetenv("RALPH_CONFIG_DIR")
 
+	// Change to empty temp dir (not a ralph project)
+	oldWd, _ := os.Getwd()
+	os.Chdir(tmpDir)
+	defer os.Chdir(oldWd)
+
 	err := runLogs(logsCmd, []string{})
 	if err == nil {
-		t.Error("logs should error when no loop name provided")
+		t.Error("logs should error when no loop name provided and not in ralph project")
 	}
 }
 

@@ -75,6 +75,15 @@ func (p *PRD) GetCurrentStory() *Story {
 	return nil
 }
 
+// CurrentStory returns the title of the current story, or "none" if all complete
+func (p *PRD) CurrentStory() string {
+	story := p.GetCurrentStory()
+	if story == nil {
+		return "none"
+	}
+	return story.Title
+}
+
 // Progress returns the completion progress as "done/total"
 func (p *PRD) Progress() string {
 	done := 0

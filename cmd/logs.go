@@ -15,18 +15,25 @@ import (
 var logsCmd = &cobra.Command{
 	Use:     "logs [name]",
 	Aliases: []string{"log", "l"},
-	Short:   "View logs of a loop",
-	Long:    `View the session logs of a loop. Use -f to follow (tail) the logs.`,
-	Args:    cobra.MaximumNArgs(1),
-	RunE:    runLogs,
+	Short:   "View progress of a loop",
+	Long: `View the progress of a loop. Shows human-readable progress by default.
+
+Examples:
+  ralph logs cli          # Show progress.txt (human-readable)
+  ralph logs cli -f       # Follow progress in real-time
+  ralph logs cli --session # Show technical session.log`,
+	Args: cobra.MaximumNArgs(1),
+	RunE: runLogs,
 }
 
 var followLogs bool
 var numLines int
+var showSession bool
 
 func init() {
 	logsCmd.Flags().BoolVarP(&followLogs, "follow", "f", false, "Follow logs in real-time")
 	logsCmd.Flags().IntVarP(&numLines, "lines", "n", 50, "Number of lines to show")
+	logsCmd.Flags().BoolVar(&showSession, "session", false, "Show technical session.log instead of progress")
 	rootCmd.AddCommand(logsCmd)
 }
 
@@ -58,16 +65,42 @@ func runLogs(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	logFile := filepath.Join(projectRoot, ".ralph", "session.log")
+	// Choose which log file to show
+	var logFile string
+	if showSession {
+		logFile = filepath.Join(projectRoot, ".ralph", "session.log")
+	} else if followLogs {
+		// For -f, use output.log (live streaming)
+		logFile = filepath.Join(projectRoot, ".ralph", "output.log")
+	} else {
+		// Default: show progress.txt (human-readable summary)
+		logFile = filepath.Join(projectRoot, ".ralph", "progress.txt")
+	}
 
 	// Check if log file exists
 	if _, err := os.Stat(logFile); os.IsNotExist(err) {
-		printWarn("No logs found")
+		if showSession {
+			printWarn("No session logs found")
+		} else if followLogs {
+			printWarn("No output yet. Run 'ralph run' to start.")
+		} else {
+			printWarn("No progress yet. Run 'ralph run' to start.")
+		}
 		return nil
 	}
 
 	if followLogs {
 		return tailFollow(logFile)
+	}
+
+	// For progress.txt, show the whole file by default
+	if !showSession {
+		content, err := os.ReadFile(logFile)
+		if err != nil {
+			return fmt.Errorf("failed to read progress: %w", err)
+		}
+		fmt.Print(string(content))
+		return nil
 	}
 
 	return tailLast(logFile, numLines)

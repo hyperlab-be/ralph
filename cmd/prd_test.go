@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestRunPrdShowNoPRD(t *testing.T) {
+func TestShowPRDNoPRD(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	os.MkdirAll(filepath.Join(tmpDir, ".ralph"), 0755)
@@ -17,13 +17,13 @@ func TestRunPrdShowNoPRD(t *testing.T) {
 	os.Chdir(tmpDir)
 	defer os.Chdir(oldWd)
 
-	// prd show prints a warning when no PRD exists, doesn't return error
-	err := runPrdShow(prdCmd, []string{})
+	// showPRD prints a warning when no PRD exists, doesn't return error
+	err := showPRD(tmpDir)
 	// This is acceptable - it warns instead of erroring
 	_ = err
 }
 
-func TestRunPrdShowWithPRD(t *testing.T) {
+func TestShowPRDWithPRD(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	os.MkdirAll(filepath.Join(tmpDir, ".ralph"), 0755)
@@ -44,13 +44,13 @@ func TestRunPrdShowWithPRD(t *testing.T) {
 	defer os.Chdir(oldWd)
 
 	// Should not error
-	err := runPrdShow(prdCmd, []string{})
+	err := showPRD(tmpDir)
 	if err != nil {
 		t.Errorf("Should not error with valid PRD: %v", err)
 	}
 }
 
-func TestRunPrdAddNoPRD(t *testing.T) {
+func TestAddStoryNoPRD(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	os.MkdirAll(filepath.Join(tmpDir, ".ralph"), 0755)
@@ -60,15 +60,7 @@ func TestRunPrdAddNoPRD(t *testing.T) {
 	os.Chdir(tmpDir)
 	defer os.Chdir(oldWd)
 
-	// Set flags for non-interactive mode
-	prdAddCmd.Flags().Set("title", "New Story")
-	prdAddCmd.Flags().Set("criteria", "Criterion 1")
-	defer func() {
-		prdAddCmd.Flags().Set("title", "")
-		prdAddCmd.Flags().Set("criteria", "")
-	}()
-
-	err := runPrdAdd(prdAddCmd, []string{"New Story"})
+	err := addStory(tmpDir, "New Story")
 	if err == nil {
 		t.Error("Should error when no PRD exists")
 	}
@@ -77,7 +69,7 @@ func TestRunPrdAddNoPRD(t *testing.T) {
 	}
 }
 
-func TestRunPrdAddWithPRD(t *testing.T) {
+func TestAddStoryWithPRD(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	os.MkdirAll(filepath.Join(tmpDir, ".ralph"), 0755)
@@ -95,15 +87,13 @@ func TestRunPrdAddWithPRD(t *testing.T) {
 	os.Chdir(tmpDir)
 	defer os.Chdir(oldWd)
 
-	// Reset and set flags
-	storyTitle = "New Story"
+	// Set criteria via the global variable
 	storyCriteria = []string{"Criterion 1", "Criterion 2"}
 	defer func() {
-		storyTitle = ""
 		storyCriteria = nil
 	}()
 
-	err := runPrdAdd(prdAddCmd, []string{"New Story"})
+	err := addStory(tmpDir, "New Story")
 	if err != nil {
 		t.Errorf("Should not error when adding story: %v", err)
 	}
@@ -122,7 +112,7 @@ func TestRunPrdNotInProject(t *testing.T) {
 	os.Chdir(tmpDir)
 	defer os.Chdir(oldWd)
 
-	err := runPrdShow(prdCmd, []string{})
+	err := runPrd(prdCmd, []string{})
 	if err == nil {
 		t.Error("Should error when not in ralph project")
 	}

@@ -1,10 +1,8 @@
 package cmd
 
 import (
-	"bufio"
 	"context"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -29,23 +27,21 @@ The agent will:
   - Work on implementing the story
   - Run tests and verify acceptance criteria
   - Commit changes and mark the story complete
-  - Move to the next story
-
-Use --sandbox to run in a Docker sandbox for safe AFK operation.`,
+  - Move to the next story`,
 	RunE: runAgent,
 }
 
 var (
 	maxIterations int
+	model         string
 	dryRun        bool
-	sandbox       bool
 	once          bool
 )
 
 func init() {
 	runCmd.Flags().IntVarP(&maxIterations, "max-iterations", "m", 10, "Maximum iterations")
+	runCmd.Flags().StringVar(&model, "model", "opus", "Model to use (opus, sonnet, etc)")
 	runCmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be done without executing")
-	runCmd.Flags().BoolVar(&sandbox, "sandbox", false, "Run in Docker sandbox (recommended for AFK)")
 	runCmd.Flags().BoolVar(&once, "once", false, "Run single iteration (HITL mode)")
 	rootCmd.AddCommand(runCmd)
 }
@@ -66,7 +62,7 @@ func runAgent(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to load PRD: %w", err)
 	}
 	if p == nil {
-		return fmt.Errorf("no PRD found. Create one with 'ralph prd create'")
+		return fmt.Errorf("no PRD found. Create one with 'ralph prd'")
 	}
 
 	// Check if already running
@@ -75,45 +71,13 @@ func runAgent(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("loop is already running")
 	}
 
-	// Load config (project config overrides global config)
-	globalCfg, _ := config.LoadGlobalConfig()
-	projectCfg, _ := config.LoadProjectConfig(projectRoot)
-
-	model := "claude-sonnet-4-20250514" // ultimate fallback
-	if globalCfg != nil && globalCfg.Defaults.Model != "" {
-		model = globalCfg.Defaults.Model
-	}
-	if projectCfg != nil && projectCfg.Agent.Model != "" {
-		model = projectCfg.Agent.Model
-	}
-
-	// Use config max_iterations if flag wasn't explicitly set
-	if !cmd.Flags().Changed("max-iterations") {
-		if projectCfg != nil && projectCfg.Agent.MaxIterations > 0 {
-			maxIterations = projectCfg.Agent.MaxIterations
-		} else if globalCfg != nil && globalCfg.Defaults.MaxIterations > 0 {
-			maxIterations = globalCfg.Defaults.MaxIterations
-		}
-	}
-
 	// --once overrides max-iterations
 	if once {
 		maxIterations = 1
 	}
 
-	// Check docker sandbox availability
-	if sandbox {
-		if err := checkDockerSandbox(); err != nil {
-			return err
-		}
-	}
-
 	printInfo(fmt.Sprintf("Starting agent loop for %s", worktreeName))
-	sandboxStr := "off"
-	if sandbox {
-		sandboxStr = "docker"
-	}
-	printInfo(fmt.Sprintf("Model: %s | Max iterations: %d | Sandbox: %s", model, maxIterations, sandboxStr))
+	printInfo(fmt.Sprintf("Model: %s | Max iterations: %d", model, maxIterations))
 
 	if dryRun {
 		printWarn("Dry run mode - not executing")
@@ -127,6 +91,10 @@ func runAgent(cmd *cobra.Command, args []string) error {
 	// Create conversations directory
 	conversationsDir := filepath.Join(projectRoot, ".ralph", "conversations")
 	os.MkdirAll(conversationsDir, 0755)
+
+	// Clear context.md at start of new loop (fresh start, no stale context)
+	contextFile := filepath.Join(projectRoot, ".ralph", "context.md")
+	os.WriteFile(contextFile, []byte(""), 0644)
 
 	// Update loop status
 	if loop == nil {
@@ -157,8 +125,17 @@ func runAgent(cmd *cobra.Command, args []string) error {
 	logFile, _ := os.OpenFile(sessionLog, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	defer logFile.Close()
 
+	// Live output log (streamed, for ralph logs -f)
+	// Truncate at start of new loop so logs only show current session
+	outputLog := filepath.Join(projectRoot, ".ralph", "output.log")
+	outputFile, _ := os.OpenFile(outputLog, os.O_TRUNC|os.O_CREATE|os.O_WRONLY, 0644)
+	defer outputFile.Close()
+
 	fmt.Fprintf(logFile, "\n=== Session started %s ===\n", time.Now().Format(time.RFC3339))
-	fmt.Fprintf(logFile, "Sandbox: %s\n", sandboxStr)
+	fmt.Fprintf(logFile, "Model: %s\n", model)
+	fmt.Fprintf(outputFile, "\n%s\n", strings.Repeat("═", 60))
+	fmt.Fprintf(outputFile, "Session started: %s\n", time.Now().Format("2006-01-02 15:04:05"))
+	fmt.Fprintf(outputFile, "%s\n\n", strings.Repeat("═", 60))
 
 	// Main loop
 	for iteration := 1; iteration <= maxIterations; iteration++ {
@@ -192,14 +169,19 @@ func runAgent(cmd *cobra.Command, args []string) error {
 		// Write conversation header
 		fmt.Fprintf(convLog, "# Iteration %d\n\n", iteration)
 		fmt.Fprintf(convLog, "**Started:** %s\n", time.Now().Format(time.RFC3339))
-		fmt.Fprintf(convLog, "**Sandbox:** %s\n", sandboxStr)
+		fmt.Fprintf(convLog, "**Model:** %s\n", model)
 		fmt.Fprintf(convLog, "**Progress before:** %s\n\n", p.Progress())
 
 		fmt.Fprintf(logFile, "[%s] Iteration %d started\n", time.Now().Format("15:04:05"), iteration)
 
+		// Write to live output log
+		fmt.Fprintf(outputFile, "━━━ Iteration %d/%d ━━━\n", iteration, maxIterations)
+		fmt.Fprintf(outputFile, "Progress: %s | Story: %s\n\n", p.Progress(), p.CurrentStory())
+		outputFile.Sync()
+
 		// Run agent iteration
-		err = runAgentIteration(ctx, projectRoot, p, sandbox, convLog)
-		
+		err = runAgentIteration(ctx, projectRoot, p, convLog, outputFile)
+
 		// Write conversation footer
 		p, _ = prd.Load(projectRoot) // Reload to get updated progress
 		progressAfter := "unknown"
@@ -220,7 +202,7 @@ func runAgent(cmd *cobra.Command, args []string) error {
 			continue
 		}
 
-		fmt.Fprintf(logFile, "[%s] Iteration %d completed, progress: %s\n", 
+		fmt.Fprintf(logFile, "[%s] Iteration %d completed, progress: %s\n",
 			time.Now().Format("15:04:05"), iteration, progressAfter)
 
 		// Brief pause between iterations (unless single iteration)
@@ -255,14 +237,6 @@ func runAgent(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	return nil
-}
-
-func checkDockerSandbox() error {
-	cmd := exec.Command("docker", "sandbox", "--help")
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("docker sandbox not available. Install Docker Desktop with AI features enabled")
-	}
 	return nil
 }
 
@@ -407,82 +381,101 @@ func buildAgentPrompt(projectRoot string, p *prd.PRD) string {
 - Be thorough - a story is only "done" when fully working
 - If blocked, document in progress.txt and move to next story
 
-## Completion Check
-If ALL stories have passes: true, output exactly:
-<promise>COMPLETE</promise>
-
 Now read .ralph/prd.json and .ralph/progress.txt, then begin work.
 `, projectRoot, p.Name, p.Description, storiesList.String())
 }
 
-func runAgentIteration(ctx context.Context, projectRoot string, p *prd.PRD, useSandbox bool, convLog *os.File) error {
+func runAgentIteration(ctx context.Context, projectRoot string, p *prd.PRD, convLog *os.File, outputLog *os.File) error {
 	prompt := buildAgentPrompt(projectRoot, p)
 
-	// Write prompt to conversation log
+	// Write prompt to conversation log (not to output.log - too verbose)
 	fmt.Fprintf(convLog, "## Prompt\n\n```\n%s\n```\n\n", prompt)
 	fmt.Fprintf(convLog, "## Agent Output\n\n```\n")
 
-	var cmd *exec.Cmd
-
-	if useSandbox {
-		// Docker sandbox - fully isolated, safe for AFK
-		printInfo("[Sandbox]")
-		cmd = exec.CommandContext(ctx, "docker", "sandbox", "run", "claude", ".",
-			"--", "--print", "--dangerously-skip-permissions", "-p", prompt)
-	} else {
-		// No sandbox - interactive mode
-		claudePath, err := exec.LookPath("claude")
-		if err != nil {
-			return fmt.Errorf("claude CLI not found")
-		}
-		cmd = exec.CommandContext(ctx, claudePath, "--print", "-p", prompt)
+	claudePath, err := exec.LookPath("claude")
+	if err != nil {
+		return fmt.Errorf("claude CLI not found")
 	}
+
+	// Always run with --dangerously-skip-permissions for autonomous operation
+	cmd := exec.CommandContext(ctx, claudePath,
+		"--dangerously-skip-permissions",
+		"--model", model,
+		"--print")
 
 	cmd.Dir = projectRoot
 	cmd.Env = os.Environ()
 
-	// Capture output
-	stdout, _ := cmd.StdoutPipe()
-	stderr, _ := cmd.StderrPipe()
+	// Set up stdin pipe for prompt
+	stdin, err := cmd.StdinPipe()
+	if err != nil {
+		return fmt.Errorf("failed to create stdin pipe: %w", err)
+	}
+
+	// Set up stdout/stderr pipes
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		return fmt.Errorf("failed to create stdout pipe: %w", err)
+	}
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		return fmt.Errorf("failed to create stderr pipe: %w", err)
+	}
 
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("failed to start agent: %w", err)
 	}
 
-	// Stream output to terminal and log
+	// Write prompt to stdin and close
 	go func() {
-		reader := bufio.NewReader(stdout)
+		stdin.Write([]byte(prompt))
+		stdin.Close()
+	}()
+
+	// Read and stream output to all destinations
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		buf := make([]byte, 4096)
 		for {
-			line, err := reader.ReadString('\n')
+			n, err := stdout.Read(buf)
+			if n > 0 {
+				os.Stdout.Write(buf[:n])
+				convLog.Write(buf[:n])
+				outputLog.Write(buf[:n])
+				outputLog.Sync() // Flush for live tailing
+			}
 			if err != nil {
-				if err != io.EOF {
-					fmt.Fprintf(os.Stderr, "stdout read error: %v\n", err)
-				}
 				break
 			}
-			fmt.Print(line)
-			convLog.WriteString(line)
 		}
 	}()
 
+	// Also capture stderr
 	go func() {
-		reader := bufio.NewReader(stderr)
+		buf := make([]byte, 4096)
 		for {
-			line, err := reader.ReadString('\n')
+			n, err := stderr.Read(buf)
+			if n > 0 {
+				os.Stderr.Write(buf[:n])
+				convLog.Write(buf[:n])
+				outputLog.Write(buf[:n])
+				outputLog.Sync()
+			}
 			if err != nil {
-				if err != io.EOF {
-					fmt.Fprintf(os.Stderr, "stderr read error: %v\n", err)
-				}
 				break
 			}
-			fmt.Fprint(os.Stderr, line)
-			convLog.WriteString("[ERR] " + line)
 		}
 	}()
 
-	err := cmd.Wait()
+	// Wait for command to finish
+	err = cmd.Wait()
+
+	// Wait for stdout reader to finish
+	<-done
+
 	fmt.Fprintf(convLog, "```\n")
-	
+
 	return err
 }
 

@@ -13,61 +13,69 @@ import (
 )
 
 var prdCmd = &cobra.Command{
-	Use:     "prd [command]",
+	Use:     "prd [story title]",
 	Aliases: []string{"p"},
-	Short:   "Manage PRD (Product Requirement Document)",
-	Long:    `View, create, or edit the PRD for the current project.`,
-	RunE:    runPrdShow,
+	Short:   "View PRD or add a story",
+	Long: `View the PRD status or add a new story.
+
+Without arguments: shows PRD status
+With a story title: adds a new story
+
+Examples:
+  ralph prd                           # Show PRD status
+  ralph prd "Add user authentication" # Add a story
+  ralph prd --new                     # Create new PRD interactively
+  ralph prd --edit                    # Edit PRD in $EDITOR`,
+	RunE: runPrd,
 }
 
-var prdCreateCmd = &cobra.Command{
-	Use:   "create",
-	Short: "Create a new PRD",
-	RunE:  runPrdCreate,
-}
-
-var prdAddCmd = &cobra.Command{
-	Use:   "add [title]",
-	Short: "Add a story to the PRD",
-	Args:  cobra.MaximumNArgs(1),
-	RunE:  runPrdAdd,
-}
-
-var storyTitle string
-var storyDesc string
-var storyCriteria []string
-
-var prdEditCmd = &cobra.Command{
-	Use:   "edit",
-	Short: "Edit PRD in your editor",
-	RunE:  runPrdEdit,
-}
+var (
+	prdNew      bool
+	prdEdit     bool
+	storyCriteria []string
+)
 
 func init() {
-	prdAddCmd.Flags().StringVarP(&storyTitle, "title", "t", "", "Story title")
-	prdAddCmd.Flags().StringVarP(&storyDesc, "description", "d", "", "Story description")
-	prdAddCmd.Flags().StringArrayVarP(&storyCriteria, "criteria", "c", nil, "Acceptance criteria (can be repeated)")
-
-	prdCmd.AddCommand(prdCreateCmd)
-	prdCmd.AddCommand(prdAddCmd)
-	prdCmd.AddCommand(prdEditCmd)
+	prdCmd.Flags().BoolVarP(&prdNew, "new", "n", false, "Create a new PRD")
+	prdCmd.Flags().BoolVarP(&prdEdit, "edit", "e", false, "Edit PRD in $EDITOR")
+	prdCmd.Flags().StringArrayVarP(&storyCriteria, "criteria", "c", nil, "Acceptance criteria (can be repeated)")
 	rootCmd.AddCommand(prdCmd)
 }
 
-func runPrdShow(cmd *cobra.Command, args []string) error {
+func runPrd(cmd *cobra.Command, args []string) error {
 	cwd, _ := os.Getwd()
 	projectRoot, err := config.FindProjectRoot(cwd)
 	if err != nil {
-		return fmt.Errorf("not in a ralph project")
+		return fmt.Errorf("not in a ralph project. Run 'ralph init' first")
 	}
 
+	// --new flag: create new PRD
+	if prdNew {
+		return createPRD(projectRoot)
+	}
+
+	// --edit flag: open in editor
+	if prdEdit {
+		return editPRD(projectRoot)
+	}
+
+	// With args: add a story
+	if len(args) > 0 {
+		return addStory(projectRoot, args[0])
+	}
+
+	// No args: show status
+	return showPRD(projectRoot)
+}
+
+func showPRD(projectRoot string) error {
 	p, err := prd.Load(projectRoot)
 	if err != nil {
 		return fmt.Errorf("failed to load PRD: %w", err)
 	}
 
 	if p == nil {
-		printWarn("No PRD found. Create one with 'ralph prd create'")
+		printWarn("No PRD found. Create one with 'ralph prd --new'")
 		return nil
 	}
 
@@ -92,13 +100,7 @@ func runPrdShow(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func runPrdCreate(cmd *cobra.Command, args []string) error {
-	cwd, _ := os.Getwd()
-	projectRoot, err := config.FindProjectRoot(cwd)
-	if err != nil {
-		return fmt.Errorf("not in a ralph project. Run 'ralph init' first")
-	}
-
+func createPRD(projectRoot string) error {
 	// Check if PRD exists
 	existing, _ := prd.Load(projectRoot)
 	if existing != nil {
@@ -135,79 +137,24 @@ func runPrdCreate(cmd *cobra.Command, args []string) error {
 	}
 
 	printSuccess(fmt.Sprintf("PRD created at %s", prd.PRDPath(projectRoot)))
-	printInfo("Add stories with 'ralph prd add'")
+	printInfo("Add stories with 'ralph prd \"Story title\"'")
 
 	return nil
 }
 
-func runPrdAdd(cmd *cobra.Command, args []string) error {
-	cwd, _ := os.Getwd()
-	projectRoot, err := config.FindProjectRoot(cwd)
-	if err != nil {
-		return fmt.Errorf("not in a ralph project")
-	}
-
+func addStory(projectRoot string, title string) error {
 	p, err := prd.Load(projectRoot)
 	if err != nil {
 		return fmt.Errorf("failed to load PRD: %w", err)
 	}
 
 	if p == nil {
-		return fmt.Errorf("no PRD found. Create one with 'ralph prd create'")
-	}
-
-	var title, description string
-	var criteria []string
-
-	// Check if title provided as arg or flag
-	if len(args) > 0 {
-		title = args[0]
-	} else if storyTitle != "" {
-		title = storyTitle
-	}
-
-	if storyDesc != "" {
-		description = storyDesc
-	}
-
-	if len(storyCriteria) > 0 {
-		criteria = storyCriteria
-	}
-
-	// Interactive mode if title not provided
-	if title == "" {
-		reader := bufio.NewReader(os.Stdin)
-
-		fmt.Println("\033[36mAdding new story...\033[0m")
-		fmt.Println()
-
-		fmt.Print("Title: ")
-		title, _ = reader.ReadString('\n')
-		title = strings.TrimSpace(title)
-
-		fmt.Print("Description: ")
-		description, _ = reader.ReadString('\n')
-		description = strings.TrimSpace(description)
-
-		fmt.Println("Acceptance criteria (one per line, empty line to finish):")
-		for {
-			line, _ := reader.ReadString('\n')
-			line = strings.TrimSpace(line)
-			if line == "" {
-				break
-			}
-			criteria = append(criteria, line)
-		}
-	}
-
-	if title == "" {
-		return fmt.Errorf("story title is required")
+		return fmt.Errorf("no PRD found. Create one with 'ralph prd --new'")
 	}
 
 	story := prd.Story{
 		Title:              title,
-		Description:        description,
-		AcceptanceCriteria: criteria,
+		AcceptanceCriteria: storyCriteria,
 		Passes:             false,
 	}
 
@@ -222,18 +169,12 @@ func runPrdAdd(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func runPrdEdit(cmd *cobra.Command, args []string) error {
-	cwd, _ := os.Getwd()
-	projectRoot, err := config.FindProjectRoot(cwd)
-	if err != nil {
-		return fmt.Errorf("not in a ralph project")
-	}
-
+func editPRD(projectRoot string) error {
 	prdPath := prd.PRDPath(projectRoot)
 
 	// Check if file exists
 	if _, err := os.Stat(prdPath); os.IsNotExist(err) {
-		return fmt.Errorf("no PRD found. Create one with 'ralph prd create'")
+		return fmt.Errorf("no PRD found. Create one with 'ralph prd --new'")
 	}
 
 	// Get editor

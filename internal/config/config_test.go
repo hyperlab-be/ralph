@@ -157,9 +157,6 @@ prefix = "test"
 [hooks]
 setup = "echo setup"
 cleanup = "echo cleanup"
-
-[agent]
-model = "claude-sonnet-4-20250514"
 `
 	os.WriteFile(filepath.Join(tmpDir, "ralph.toml"), []byte(configContent), 0644)
 
@@ -204,12 +201,9 @@ func TestLoadGlobalConfig(t *testing.T) {
 		t.Fatalf("Failed to load global config: %v", err)
 	}
 
-	if cfg.Defaults.Model != "claude-sonnet-4-20250514" {
-		t.Errorf("Expected default model, got '%s'", cfg.Defaults.Model)
-	}
-
-	if cfg.Defaults.MaxIterations != 10 {
-		t.Errorf("Expected default max_iterations 10, got %d", cfg.Defaults.MaxIterations)
+	// Only projects_dir should have a default now
+	if cfg.Defaults.ProjectsDir != "~/Code" {
+		t.Errorf("Expected default projects_dir '~/Code', got '%s'", cfg.Defaults.ProjectsDir)
 	}
 }
 

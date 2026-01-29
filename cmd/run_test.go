@@ -47,7 +47,6 @@ func TestBuildAgentPrompt(t *testing.T) {
 		"Criterion C",
 		"HIGHEST PRIORITY",
 		"ONE story per iteration",
-		"<promise>COMPLETE</promise>",
 		".ralph/prd.json",
 		".ralph/progress.txt",
 	}
@@ -70,10 +69,6 @@ func TestBuildAgentPromptEmptyPRD(t *testing.T) {
 
 	if !strings.Contains(prompt, "Empty Feature") {
 		t.Error("Prompt should contain PRD name")
-	}
-
-	if !strings.Contains(prompt, "<promise>COMPLETE</promise>") {
-		t.Error("Prompt should contain completion signal")
 	}
 }
 
@@ -116,7 +111,7 @@ func TestFindStoryEmptyPRD(t *testing.T) {
 func TestRunAgentDryRun(t *testing.T) {
 	tmpDir := t.TempDir()
 	configDir := t.TempDir()
-	
+
 	// Use isolated config directory
 	os.Setenv("RALPH_CONFIG_DIR", configDir)
 	defer os.Unsetenv("RALPH_CONFIG_DIR")
@@ -189,34 +184,6 @@ func TestRunAgentNotInProject(t *testing.T) {
 	}
 }
 
-func TestRunAgentInvalidSandbox(t *testing.T) {
-	tmpDir := t.TempDir()
-
-	// Setup project structure
-	os.MkdirAll(filepath.Join(tmpDir, ".ralph"), 0755)
-	os.WriteFile(filepath.Join(tmpDir, "ralph.toml"), []byte("[project]\nname = \"test\"\n"), 0644)
-
-	prdData := `{"name": "Test", "userStories": [{"id": "1", "title": "Test", "passes": false}]}`
-	os.WriteFile(filepath.Join(tmpDir, ".ralph", "prd.json"), []byte(prdData), 0644)
-
-	oldWd, _ := os.Getwd()
-	os.Chdir(tmpDir)
-	defer os.Chdir(oldWd)
-
-	// The sandbox variable is a bool now, so we can't set it to an invalid string
-	// This test validates that the bool flag works correctly
-	sandbox = true
-	dryRun = true
-	defer func() {
-		sandbox = false
-		dryRun = false
-	}()
-
-	// With sandbox=true but docker not available, it should error
-	// This may or may not error depending on if docker is installed
-	_ = runAgent(runCmd, []string{})
-}
-
 func TestConversationsDirectoryCreated(t *testing.T) {
 	tmpDir := t.TempDir()
 
@@ -267,7 +234,7 @@ func TestOnceFlag(t *testing.T) {
 	configDir := t.TempDir()
 	os.Setenv("RALPH_CONFIG_DIR", configDir)
 	defer os.Unsetenv("RALPH_CONFIG_DIR")
-	
+
 	os.MkdirAll(filepath.Join(tmpDir, ".ralph"), 0755)
 	os.WriteFile(filepath.Join(tmpDir, "ralph.toml"), []byte("[project]\nname = \"test\"\n"), 0644)
 
@@ -289,13 +256,6 @@ func TestOnceFlag(t *testing.T) {
 	}
 }
 
-func TestCheckDockerSandbox(t *testing.T) {
-	err := checkDockerSandbox()
-	// This will pass or fail depending on whether docker sandbox is installed
-	// We just verify it doesn't panic
-	_ = err
-}
-
 func TestRunAgentIterationContextCanceled(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // Cancel immediately
@@ -308,12 +268,14 @@ func TestRunAgentIterationContextCanceled(t *testing.T) {
 		},
 	}
 
-	// Create a temp file for conversation log
+	// Create temp files for logs
 	convLog, _ := os.CreateTemp(tmpDir, "conv-*.md")
 	defer convLog.Close()
+	outputLog, _ := os.CreateTemp(tmpDir, "output-*.log")
+	defer outputLog.Close()
 
 	// This should return quickly due to canceled context
-	err := runAgentIteration(ctx, tmpDir, p, false, convLog)
+	err := runAgentIteration(ctx, tmpDir, p, convLog, outputLog)
 	// Error is expected since context is canceled
 	_ = err
 }

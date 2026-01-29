@@ -11,20 +11,10 @@ import (
 // GlobalConfig represents the global ralph configuration
 type GlobalConfig struct {
 	Defaults DefaultsConfig `toml:"defaults"`
-	Agent    AgentConfig    `toml:"agent"`
 }
 
 type DefaultsConfig struct {
-	Model         string `toml:"model"`
-	MaxIterations int    `toml:"max_iterations"`
-	ProjectsDir   string `toml:"projects_dir"`
-}
-
-type AgentConfig struct {
-	APIKey        string `toml:"api_key"`
-	Model         string `toml:"model"`
-	MaxIterations int    `toml:"max_iterations"`
-	Prompt        string `toml:"prompt"`
+	ProjectsDir string `toml:"projects_dir"`
 }
 
 // ProjectConfig represents project-specific configuration (ralph.toml)
@@ -32,7 +22,6 @@ type ProjectConfig struct {
 	Project  ProjectInfo  `toml:"project"`
 	Worktree WorktreeInfo `toml:"worktree"`
 	Hooks    HooksConfig  `toml:"hooks"`
-	Agent    AgentConfig  `toml:"agent"`
 }
 
 type ProjectInfo struct {
@@ -89,9 +78,7 @@ func GlobalConfigFile() string {
 func LoadGlobalConfig() (*GlobalConfig, error) {
 	cfg := &GlobalConfig{
 		Defaults: DefaultsConfig{
-			Model:         "claude-sonnet-4-20250514",
-			MaxIterations: 10,
-			ProjectsDir:   "~/Code",
+			ProjectsDir: "~/Code",
 		},
 	}
 
