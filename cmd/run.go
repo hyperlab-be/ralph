@@ -32,8 +32,8 @@ The agent will:
   - Move to the next story
 
 Sandbox modes:
-  - docker: Docker sandbox (default, recommended for AFK)
-  - none:   No sandbox (interactive, requires permission acceptance)`,
+  - none:   No sandbox (default, interactive)
+  - docker: Docker sandbox (recommended for AFK)`,
 	RunE: runAgent,
 }
 
@@ -47,7 +47,7 @@ var (
 func init() {
 	runCmd.Flags().IntVarP(&maxIterations, "max-iterations", "m", 10, "Maximum iterations")
 	runCmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be done without executing")
-	runCmd.Flags().StringVarP(&sandbox, "sandbox", "s", "docker", "Sandbox mode: docker, none")
+	runCmd.Flags().StringVarP(&sandbox, "sandbox", "s", "none", "Sandbox mode: none, docker")
 	runCmd.Flags().BoolVar(&once, "once", false, "Run single iteration (HITL mode)")
 	rootCmd.AddCommand(runCmd)
 }
