@@ -115,6 +115,11 @@ func TestFindStoryEmptyPRD(t *testing.T) {
 
 func TestRunAgentDryRun(t *testing.T) {
 	tmpDir := t.TempDir()
+	configDir := t.TempDir()
+	
+	// Use isolated config directory
+	os.Setenv("RALPH_CONFIG_DIR", configDir)
+	defer os.Unsetenv("RALPH_CONFIG_DIR")
 
 	// Setup project structure
 	os.MkdirAll(filepath.Join(tmpDir, ".ralph"), 0755)
@@ -259,6 +264,10 @@ func TestOnceFlag(t *testing.T) {
 	once = true
 
 	tmpDir := t.TempDir()
+	configDir := t.TempDir()
+	os.Setenv("RALPH_CONFIG_DIR", configDir)
+	defer os.Unsetenv("RALPH_CONFIG_DIR")
+	
 	os.MkdirAll(filepath.Join(tmpDir, ".ralph"), 0755)
 	os.WriteFile(filepath.Join(tmpDir, "ralph.toml"), []byte("[project]\nname = \"test\"\n"), 0644)
 
@@ -312,6 +321,9 @@ func TestRunAgentIterationContextCanceled(t *testing.T) {
 func TestPRDCompleteCheck(t *testing.T) {
 	// Test that loop stops when PRD is complete
 	tmpDir := t.TempDir()
+	configDir := t.TempDir()
+	os.Setenv("RALPH_CONFIG_DIR", configDir)
+	defer os.Unsetenv("RALPH_CONFIG_DIR")
 
 	os.MkdirAll(filepath.Join(tmpDir, ".ralph"), 0755)
 	os.WriteFile(filepath.Join(tmpDir, "ralph.toml"), []byte("[project]\nname = \"test\"\n"), 0644)
