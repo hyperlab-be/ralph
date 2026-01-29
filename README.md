@@ -1,14 +1,47 @@
 # ralph
 
-CLI tool for managing AI-powered development loops.
+CLI tool for managing AI-powered development loops. Based on the [Ralph Wiggum](https://www.aihero.dev/tips-for-ai-coding-with-ralph-wiggum) pattern for autonomous AI coding.
 
 ## Features
 
 - 🌳 Create and manage git worktrees for features
 - 📋 Define PRDs (Product Requirement Documents) with user stories
 - 🤖 Run AI agents (Claude CLI) to implement features autonomously
+- 🐳 Docker sandbox support for safe AFK operation
+- 📝 Full conversation logging for debugging
+- 🔄 Agent chooses highest priority task (not just first in list)
 - 📊 Monitor progress across multiple loops
 - 🧹 Clean up completed features (worktrees, databases)
+
+## How It Works
+
+Ralph runs Claude CLI in a loop, letting it work autonomously through your PRD:
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  PRD (prd.json)                                         │
+│  ├── Story 1: Login page           ✅ passes: true      │
+│  ├── Story 2: Password reset       ⬜ passes: false     │
+│  └── Story 3: OAuth                ⬜ passes: false     │
+└─────────────────────────────────────────────────────────┘
+                          │
+                          ▼
+┌─────────────────────────────────────────────────────────┐
+│  RALPH LOOP (per iteration)                             │
+│                                                         │
+│  1. Read prd.json + progress.txt                        │
+│  2. Agent chooses highest priority incomplete story     │
+│  3. Implements, runs tests, commits                     │
+│  4. Sets passes: true in prd.json                       │
+│  5. Logs everything to .ralph/conversations/            │
+│  6. Repeat until all stories complete                   │
+└─────────────────────────────────────────────────────────┘
+                          │
+                          ▼
+              ┌───────────────────────┐
+              │  All done? → Create PR │
+              └───────────────────────┘
+```
 
 ## Installation
 
@@ -24,6 +57,41 @@ cd ralph
 go build -o ralph .
 ```
 
+## Quick Start
+
+```bash
+cd ~/Code/myproject
+ralph init                    # Initialize ralph
+ralph prd create              # Create PRD interactively
+ralph run                     # Start the loop
+ralph run --sandbox           # Run in Docker sandbox (AFK-safe)
+ralph run --once              # Single iteration (HITL mode)
+```
+
+## Two Modes of Operation
+
+### HITL (Human-in-the-Loop)
+
+Watch the agent work, intervene when needed:
+
+```bash
+ralph run --once              # Single iteration
+ralph run --max-iterations 3  # Few iterations, stay close
+```
+
+Best for: Learning, prompt refinement, risky architectural work.
+
+### AFK (Away From Keyboard)
+
+Let ralph run autonomously in a sandbox:
+
+```bash
+ralph run --sandbox           # Docker sandbox, safe to leave
+ralph run --sandbox -m 20     # 20 iterations max
+```
+
+Best for: Bulk work, well-defined tasks, overnight runs.
+
 ## Commands
 
 ### `ralph init`
@@ -36,19 +104,16 @@ $ ralph init
 ℹ Edit ralph.toml to configure hooks and settings
 ```
 
-Creates a `ralph.toml` config file and `.ralph/` directory.
-
 ---
 
 ### `ralph new`
 
-Create a new feature with git worktree and optional database.
+Create a new feature with git worktree.
 
 ```bash
 $ ralph new user-auth
 ✓ Created worktree at ../myproject-user-auth
 ✓ Created branch feature/user-auth
-✓ Registered loop: myproject-user-auth
 ℹ Next: Create a PRD with 'ralph prd create' then start with 'ralph run'
 ```
 
@@ -56,103 +121,73 @@ $ ralph new user-auth
 
 ### `ralph prd`
 
-View, create, or edit the PRD (Product Requirement Document).
+View, create, or edit the PRD.
 
 ```bash
 $ ralph prd
 📋 PRD: User Authentication
 
-Stories:
-  ✓ 1. Login page with email/password
-  ✓ 2. Password reset flow
-  ⚫ 3. OAuth integration (Google)
-  ⚫ 4. Session management
+[ ] 1. Login page with email/password
+[ ] 2. Password reset flow
+[✓] 3. OAuth integration (Google)
 
-Progress: 2/4 stories complete
+Progress: 1/3 (33%)
 ```
 
-Create a new PRD interactively:
+Create interactively:
 
 ```bash
 $ ralph prd create
-? Feature name: User Authentication
-? Description: Add user authentication with multiple providers
-? Add a story: Login page with email/password
-? Acceptance criteria: - Form validates email format
-? Acceptance criteria: - Shows error on invalid credentials
-? Acceptance criteria: (empty to finish)
-? Add another story? Yes
-...
-✓ Created PRD with 4 stories
 ```
 
-Add a story with flags (non-interactive):
+Add a story:
 
 ```bash
-$ ralph prd add "OAuth integration" -c "Support Google login" -c "Support GitHub login"
-✓ Added story 5: OAuth integration
-```
-
-Or interactively:
-
-```bash
-$ ralph prd add
-Adding new story...
-
-Title: Session management
-Description: Handle user sessions securely
-Acceptance criteria (one per line, empty line to finish):
-Sessions expire after 24h
-Refresh tokens supported
-
-✓ Added story 6: Session management
+$ ralph prd add "Session management" -c "Sessions expire after 24h" -c "Refresh tokens supported"
+✓ Added story 4: Session management
 ```
 
 ---
 
 ### `ralph run`
 
-Start the AI agent loop to implement stories.
+Start the AI agent loop.
 
 ```bash
 $ ralph run
 ℹ Starting agent loop for myproject-user-auth
-ℹ Model: claude-sonnet-4-20250514 | Max iterations: 10
+ℹ Model: claude-sonnet-4-20250514 | Max iterations: 10 | Sandbox: off
 
-Iteration 1/10: Story 3 - OAuth integration (Google)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Iteration 1/10
+Progress: 1/4
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 [Agent working...]
-✓ Story 3 completed!
+✓ Story completed!
 
-Iteration 2/10: Story 4 - Session management
-[Agent working...]
-✓ Story 4 completed!
-
-✓ All stories complete!
-ℹ Final progress: 4/4 stories
-ℹ All stories complete! Creating pull request...
-ℹ Pushing branch...
-ℹ Creating pull request...
-✓ Pull request created!
-https://github.com/org/repo/pull/123
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Final progress: 4/4
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✓ All stories complete! Creating pull request...
 ```
 
-When all stories are complete, ralph automatically:
-1. Commits any uncommitted changes
-2. Pushes the branch
-3. Creates a pull request with a summary of completed stories
+**Options:**
 
-Options:
+| Flag | Description |
+|------|-------------|
+| `--sandbox` | Run in Docker sandbox (recommended for AFK) |
+| `--once` | Single iteration (HITL mode) |
+| `-m, --max-iterations` | Maximum iterations (default: 10) |
+| `--dry-run` | Preview without executing |
 
-```bash
-$ ralph run --max-iterations 5    # Limit iterations
-$ ralph run --dry-run             # Preview without executing
-```
+When all stories are complete, ralph automatically creates a pull request.
 
 ---
 
 ### `ralph status`
 
-Show status of all loops or a specific loop.
+Show status of all loops.
 
 ```bash
 $ ralph status
@@ -164,52 +199,25 @@ $ ralph status
    Status: running
    Progress: 2/4 stories
    Path: /Users/dev/myproject-user-auth
-
-⚫ myproject-api-v2
-   Status: stopped
-   Progress: 5/5 stories
-   Path: /Users/dev/myproject-api-v2
-```
-
-With auto-refresh:
-
-```bash
-$ ralph status -f  # or --follow
 ```
 
 ---
 
 ### `ralph logs`
 
-View logs of a running or completed loop.
+View conversation logs.
 
 ```bash
-$ ralph logs myproject-user-auth
-=== Session started 2024-01-15T10:30:00Z ===
-[10:30:05] Iteration 1: Login page with email/password
-[10:32:15] Story 1 completed
-[10:32:20] Iteration 2: Password reset flow
-...
+$ ralph logs myproject-user-auth      # Session summary
+$ ralph logs -f myproject-user-auth   # Follow in real-time
 ```
 
-Follow logs in real-time:
+Full conversation logs are stored in `.ralph/conversations/`:
+- `iteration-1.md`
+- `iteration-2.md`
+- etc.
 
-```bash
-$ ralph logs -f myproject-user-auth
-```
-
----
-
-### `ralph list`
-
-List all registered loops.
-
-```bash
-$ ralph list
-🟢 myproject-user-auth
-⚫ myproject-api-v2
-⚫ other-project-feature
-```
+Each log contains the full prompt and agent output for debugging.
 
 ---
 
@@ -226,39 +234,26 @@ $ ralph stop myproject-user-auth
 
 ### `ralph cleanup`
 
-Remove a worktree and clean up resources.
+Remove a worktree and clean up.
 
 ```bash
 $ ralph cleanup myproject-user-auth
-⚠ This will remove the worktree at /Users/dev/myproject-user-auth
-? Continue? Yes
-✓ Ran cleanup hooks
 ✓ Removed worktree
 ✓ Unregistered loop
-```
-
-With branch deletion:
-
-```bash
-$ ralph cleanup myproject-user-auth --delete-branch
-✓ Removed worktree
-✓ Deleted branch feature/user-auth
 ```
 
 ---
 
 ### `ralph doctor`
 
-Check that all required dependencies are installed.
+Check dependencies.
 
 ```bash
 $ ralph doctor
-Checking dependencies...
-
 ✓ git: git version 2.39.0
-✓ claude: found at /usr/local/bin/claude
-
-✓ All required dependencies installed!
+✓ claude: Claude CLI installed
+✓ gh: gh version 2.40.0
+✓ docker: Docker Desktop with sandbox support
 ```
 
 ---
@@ -272,11 +267,11 @@ Checking dependencies...
 name = "myproject"
 
 [worktree]
-prefix = "myproject"  # Worktree naming: {prefix}-{feature}
+prefix = "myproject"
 
 [hooks]
-setup = "./scripts/setup-worktree.sh"      # Run after creating worktree
-cleanup = "./scripts/cleanup-worktree.sh"  # Run before removing worktree
+setup = "./scripts/setup-worktree.sh"
+cleanup = "./scripts/cleanup-worktree.sh"
 
 [agent]
 model = "claude-sonnet-4-20250514"
@@ -292,12 +287,59 @@ max_iterations = 10
 projects_dir = "~/Code"
 ```
 
+## PRD Format
+
+```json
+{
+  "name": "Feature Name",
+  "description": "What we're building",
+  "userStories": [
+    {
+      "id": "1",
+      "title": "Story title",
+      "description": "Detailed description",
+      "acceptanceCriteria": [
+        "Criterion 1",
+        "Criterion 2"
+      ],
+      "passes": false
+    }
+  ]
+}
+```
+
+The agent sets `passes: true` when a story is complete.
+
+## Files
+
+```
+myproject/
+├── ralph.toml              # Project config
+└── .ralph/
+    ├── prd.json            # PRD with stories
+    ├── progress.txt        # Progress tracking between iterations
+    ├── session.log         # Session summary
+    └── conversations/      # Full conversation logs
+        ├── iteration-1.md
+        ├── iteration-2.md
+        └── ...
+```
+
 ## Requirements
 
 - Go 1.21+
 - Git
-- [Claude CLI](https://github.com/anthropics/claude-code) (`npm install -g @anthropic-ai/claude-code`)
+- [Claude CLI](https://docs.anthropic.com/en/docs/claude-code) 
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (for `--sandbox`)
 - [GitHub CLI](https://cli.github.com) (optional, for auto PR creation)
+
+## Tips
+
+1. **Start with HITL** - Learn how the loop works before going AFK
+2. **Small stories** - Smaller = better results
+3. **Explicit acceptance criteria** - Prevents shortcuts
+4. **Review conversation logs** - Debug via `.ralph/conversations/`
+5. **Use sandbox for AFK** - Safe to leave running
 
 ## License
 
