@@ -8,21 +8,21 @@ import (
 
 func TestConfigDir(t *testing.T) {
 	// Test with environment variable
-	os.Setenv("RL_CONFIG_DIR", "/tmp/test-rl-config")
-	defer os.Unsetenv("RL_CONFIG_DIR")
+	os.Setenv("RALPH_CONFIG_DIR", "/tmp/test-ralph-config")
+	defer os.Unsetenv("RALPH_CONFIG_DIR")
 
 	dir := ConfigDir()
-	if dir != "/tmp/test-rl-config" {
-		t.Errorf("Expected /tmp/test-rl-config, got %s", dir)
+	if dir != "/tmp/test-ralph-config" {
+		t.Errorf("Expected /tmp/test-ralph-config, got %s", dir)
 	}
 }
 
 func TestConfigDirDefault(t *testing.T) {
-	os.Unsetenv("RL_CONFIG_DIR")
+	os.Unsetenv("RALPH_CONFIG_DIR")
 
 	dir := ConfigDir()
 	home, _ := os.UserHomeDir()
-	expected := filepath.Join(home, ".config", "rl")
+	expected := filepath.Join(home, ".config", "ralph")
 
 	if dir != expected {
 		t.Errorf("Expected %s, got %s", expected, dir)
@@ -32,8 +32,8 @@ func TestConfigDirDefault(t *testing.T) {
 func TestLoadLoopsEmpty(t *testing.T) {
 	// Create temp directory
 	tmpDir := t.TempDir()
-	os.Setenv("RL_CONFIG_DIR", tmpDir)
-	defer os.Unsetenv("RL_CONFIG_DIR")
+	os.Setenv("RALPH_CONFIG_DIR", tmpDir)
+	defer os.Unsetenv("RALPH_CONFIG_DIR")
 
 	registry, err := LoadLoops()
 	if err != nil {
@@ -48,8 +48,8 @@ func TestLoadLoopsEmpty(t *testing.T) {
 func TestSetAndGetLoop(t *testing.T) {
 	// Create temp directory
 	tmpDir := t.TempDir()
-	os.Setenv("RL_CONFIG_DIR", tmpDir)
-	defer os.Unsetenv("RL_CONFIG_DIR")
+	os.Setenv("RALPH_CONFIG_DIR", tmpDir)
+	defer os.Unsetenv("RALPH_CONFIG_DIR")
 
 	loop := &Loop{
 		Name:    "test-loop",
@@ -88,8 +88,8 @@ func TestSetAndGetLoop(t *testing.T) {
 func TestRemoveLoop(t *testing.T) {
 	// Create temp directory
 	tmpDir := t.TempDir()
-	os.Setenv("RL_CONFIG_DIR", tmpDir)
-	defer os.Unsetenv("RL_CONFIG_DIR")
+	os.Setenv("RALPH_CONFIG_DIR", tmpDir)
+	defer os.Unsetenv("RALPH_CONFIG_DIR")
 
 	loop := &Loop{
 		Name:   "to-remove",
@@ -120,8 +120,8 @@ func TestFindProjectRoot(t *testing.T) {
 	subDir := filepath.Join(projectDir, "src", "pkg")
 	os.MkdirAll(subDir, 0755)
 
-	// Create rl.toml
-	rlToml := filepath.Join(projectDir, "rl.toml")
+	// Create ralph.toml
+	rlToml := filepath.Join(projectDir, "ralph.toml")
 	os.WriteFile(rlToml, []byte("[project]\nname = \"test\"\n"), 0644)
 
 	// Find from subdirectory
@@ -161,7 +161,7 @@ cleanup = "echo cleanup"
 [agent]
 model = "claude-sonnet-4-20250514"
 `
-	os.WriteFile(filepath.Join(tmpDir, "rl.toml"), []byte(configContent), 0644)
+	os.WriteFile(filepath.Join(tmpDir, "ralph.toml"), []byte(configContent), 0644)
 
 	cfg, err := LoadProjectConfig(tmpDir)
 	if err != nil {

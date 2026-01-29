@@ -25,7 +25,7 @@ type Story struct {
 
 // PRDPath returns the path to the PRD file for a project
 func PRDPath(projectRoot string) string {
-	return filepath.Join(projectRoot, ".rl", "prd.json")
+	return filepath.Join(projectRoot, ".ralph", "prd.json")
 }
 
 // Load loads a PRD from disk

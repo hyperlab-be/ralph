@@ -46,7 +46,7 @@ func runAgent(cmd *cobra.Command, args []string) error {
 	cwd, _ := os.Getwd()
 	projectRoot, err := config.FindProjectRoot(cwd)
 	if err != nil {
-		return fmt.Errorf("not in a rl project")
+		return fmt.Errorf("not in a ralph project")
 	}
 
 	worktreeName := filepath.Base(projectRoot)
@@ -57,7 +57,7 @@ func runAgent(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to load PRD: %w", err)
 	}
 	if p == nil {
-		return fmt.Errorf("no PRD found. Create one with 'rl prd create'")
+		return fmt.Errorf("no PRD found. Create one with 'ralph prd create'")
 	}
 
 	// Check if already running
@@ -110,7 +110,7 @@ func runAgent(cmd *cobra.Command, args []string) error {
 	}()
 
 	// Session log
-	sessionLog := filepath.Join(projectRoot, ".rl", "session.log")
+	sessionLog := filepath.Join(projectRoot, ".ralph", "session.log")
 	logFile, _ := os.OpenFile(sessionLog, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	defer logFile.Close()
 
@@ -197,9 +197,9 @@ func runAgentIteration(ctx context.Context, projectRoot string, story *prd.Story
 2. Write tests to verify the acceptance criteria
 3. Run tests and ensure they pass
 4. Commit changes with message: feat(story-%s): %s
-5. Update .rl/prd.json to set passes: true for story %s
+5. Update .ralph/prd.json to set passes: true for story %s
 
-When complete, the story's "passes" field in .rl/prd.json must be true.
+When complete, the story's "passes" field in .ralph/prd.json must be true.
 `, projectRoot, story.Title, story.Description, criteria.String(), story.ID, story.Title, story.ID)
 
 	// Check for Claude CLI

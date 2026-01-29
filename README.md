@@ -1,12 +1,12 @@
 # ralph
 
-CLI tool for managing AI-powered development loops with [ralph-tui](https://github.com/m-ods/ralph-tui).
+CLI tool for managing AI-powered development loops. A standalone alternative to ralph-tui.
 
 ## Features
 
 - 🌳 Create and manage git worktrees for features
 - 📋 Define PRDs (Product Requirement Documents) with user stories
-- 🤖 Run AI agents to implement features autonomously
+- 🤖 Run AI agents (Claude CLI) to implement features autonomously
 - 📊 Monitor progress across multiple loops
 - 🧹 Clean up completed features (worktrees, databases)
 
@@ -21,42 +21,42 @@ Or build from source:
 ```bash
 git clone https://github.com/hyperlab-be/ralph.git
 cd ralph
-go build -o rl .
+go build -o ralph .
 ```
 
 ## Usage
 
 ```bash
-# Initialize a new project for rl
-rl init
+# Initialize a new project for ralph
+ralph init
 
 # Create a new feature with worktree + database
-rl new my-feature
+ralph new my-feature
 
 # Create/edit a PRD interactively
-rl prd
+ralph prd
 
 # Start the AI loop
-rl run
+ralph run
 
 # Check status of all loops
-rl status
+ralph status
 
 # View logs of a running loop
-rl logs my-feature
+ralph logs my-feature
 
 # Interactive dashboard
-rl dashboard
+ralph dashboard
 
 # Clean up a completed feature
-rl cleanup my-feature
+ralph cleanup my-feature
 ```
 
 ## Commands
 
 | Command | Description |
 |---------|-------------|
-| `init` | Initialize rl in current project |
+| `init` | Initialize ralph in current project |
 | `new` | Create a new feature (worktree + database) |
 | `prd` | Create or edit PRD for current worktree |
 | `run` | Start the AI development loop |
@@ -71,8 +71,8 @@ rl cleanup my-feature
 
 - Go 1.21+
 - Git
-- [ralph-tui](https://github.com/m-ods/ralph-tui)
-- MySQL (for database provisioning)
+- [Claude CLI](https://github.com/anthropics/claude-code) (`npm install -g @anthropic-ai/claude-code`)
+- MySQL (optional, for database provisioning)
 
 ## License
 

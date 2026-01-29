@@ -49,7 +49,7 @@ func runPrdShow(cmd *cobra.Command, args []string) error {
 	cwd, _ := os.Getwd()
 	projectRoot, err := config.FindProjectRoot(cwd)
 	if err != nil {
-		return fmt.Errorf("not in a rl project")
+		return fmt.Errorf("not in a ralph project")
 	}
 
 	p, err := prd.Load(projectRoot)
@@ -58,7 +58,7 @@ func runPrdShow(cmd *cobra.Command, args []string) error {
 	}
 
 	if p == nil {
-		printWarn("No PRD found. Create one with 'rl prd create'")
+		printWarn("No PRD found. Create one with 'ralph prd create'")
 		return nil
 	}
 
@@ -87,7 +87,7 @@ func runPrdCreate(cmd *cobra.Command, args []string) error {
 	cwd, _ := os.Getwd()
 	projectRoot, err := config.FindProjectRoot(cwd)
 	if err != nil {
-		return fmt.Errorf("not in a rl project. Run 'rl init' first")
+		return fmt.Errorf("not in a ralph project. Run 'ralph init' first")
 	}
 
 	// Check if PRD exists
@@ -126,7 +126,7 @@ func runPrdCreate(cmd *cobra.Command, args []string) error {
 	}
 
 	printSuccess(fmt.Sprintf("PRD created at %s", prd.PRDPath(projectRoot)))
-	printInfo("Add stories with 'rl prd add'")
+	printInfo("Add stories with 'ralph prd add'")
 
 	return nil
 }
@@ -135,7 +135,7 @@ func runPrdAdd(cmd *cobra.Command, args []string) error {
 	cwd, _ := os.Getwd()
 	projectRoot, err := config.FindProjectRoot(cwd)
 	if err != nil {
-		return fmt.Errorf("not in a rl project")
+		return fmt.Errorf("not in a ralph project")
 	}
 
 	p, err := prd.Load(projectRoot)
@@ -144,7 +144,7 @@ func runPrdAdd(cmd *cobra.Command, args []string) error {
 	}
 
 	if p == nil {
-		return fmt.Errorf("no PRD found. Create one with 'rl prd create'")
+		return fmt.Errorf("no PRD found. Create one with 'ralph prd create'")
 	}
 
 	reader := bufio.NewReader(os.Stdin)
@@ -193,14 +193,14 @@ func runPrdEdit(cmd *cobra.Command, args []string) error {
 	cwd, _ := os.Getwd()
 	projectRoot, err := config.FindProjectRoot(cwd)
 	if err != nil {
-		return fmt.Errorf("not in a rl project")
+		return fmt.Errorf("not in a ralph project")
 	}
 
 	prdPath := prd.PRDPath(projectRoot)
 
 	// Check if file exists
 	if _, err := os.Stat(prdPath); os.IsNotExist(err) {
-		return fmt.Errorf("no PRD found. Create one with 'rl prd create'")
+		return fmt.Errorf("no PRD found. Create one with 'ralph prd create'")
 	}
 
 	// Get editor

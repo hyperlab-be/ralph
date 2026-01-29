@@ -10,8 +10,8 @@ import (
 
 var initCmd = &cobra.Command{
 	Use:   "init [path]",
-	Short: "Initialize rl in a project",
-	Long:  `Initialize rl configuration in the current or specified project directory.`,
+	Short: "Initialize ralph in a project",
+	Long:  `Initialize ralph configuration in the current or specified project directory.`,
 	Args:  cobra.MaximumNArgs(1),
 	RunE:  runInit,
 }
@@ -33,7 +33,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 	}
 
 	// Check if already initialized
-	configPath := filepath.Join(absPath, "rl.toml")
+	configPath := filepath.Join(absPath, "ralph.toml")
 	if _, err := os.Stat(configPath); err == nil {
 		printWarn("Project already initialized")
 		return nil
@@ -41,8 +41,8 @@ func runInit(cmd *cobra.Command, args []string) error {
 
 	projectName := filepath.Base(absPath)
 
-	// Create rl.toml
-	configContent := fmt.Sprintf(`# rl configuration for %s
+	// Create ralph.toml
+	configContent := fmt.Sprintf(`# ralph configuration for %s
 
 [project]
 name = "%s"
@@ -72,21 +72,21 @@ cleanup = """
 model = "claude-sonnet-4-20250514"
 max_iterations = 10
 # Custom prompt file (optional)
-# prompt = ".rl/prompt.md"
+# prompt = ".ralph/prompt.md"
 `, projectName, projectName, projectName, projectName)
 
 	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
-		return fmt.Errorf("failed to create rl.toml: %w", err)
+		return fmt.Errorf("failed to create ralph.toml: %w", err)
 	}
 
-	// Create .rl directory
-	rlDir := filepath.Join(absPath, ".rl")
+	// Create .ralph directory
+	rlDir := filepath.Join(absPath, ".ralph")
 	if err := os.MkdirAll(rlDir, 0755); err != nil {
-		return fmt.Errorf("failed to create .rl directory: %w", err)
+		return fmt.Errorf("failed to create .ralph directory: %w", err)
 	}
 
-	printSuccess(fmt.Sprintf("Initialized rl in %s", absPath))
-	printInfo("Edit rl.toml to configure hooks and settings")
+	printSuccess(fmt.Sprintf("Initialized ralph in %s", absPath))
+	printInfo("Edit ralph.toml to configure hooks and settings")
 
 	return nil
 }

@@ -8,7 +8,7 @@ import (
 	"github.com/BurntSushi/toml"
 )
 
-// GlobalConfig represents the global rl configuration
+// GlobalConfig represents the global ralph configuration
 type GlobalConfig struct {
 	Defaults DefaultsConfig `toml:"defaults"`
 	Agent    AgentConfig    `toml:"agent"`
@@ -27,7 +27,7 @@ type AgentConfig struct {
 	Prompt        string `toml:"prompt"`
 }
 
-// ProjectConfig represents project-specific configuration (rl.toml)
+// ProjectConfig represents project-specific configuration (ralph.toml)
 type ProjectConfig struct {
 	Project  ProjectInfo  `toml:"project"`
 	Worktree WorktreeInfo `toml:"worktree"`
@@ -69,10 +69,10 @@ type Loop struct {
 
 // Paths
 func ConfigDir() string {
-	dir := os.Getenv("RL_CONFIG_DIR")
+	dir := os.Getenv("RALPH_CONFIG_DIR")
 	if dir == "" {
 		home, _ := os.UserHomeDir()
-		dir = filepath.Join(home, ".config", "rl")
+		dir = filepath.Join(home, ".config", "ralph")
 	}
 	return dir
 }
@@ -104,10 +104,10 @@ func LoadGlobalConfig() (*GlobalConfig, error) {
 	return cfg, err
 }
 
-// LoadProjectConfig loads project configuration from rl.toml
+// LoadProjectConfig loads project configuration from ralph.toml
 func LoadProjectConfig(projectRoot string) (*ProjectConfig, error) {
 	cfg := &ProjectConfig{}
-	path := filepath.Join(projectRoot, "rl.toml")
+	path := filepath.Join(projectRoot, "ralph.toml")
 
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		return nil, nil
@@ -183,14 +183,14 @@ func RemoveLoop(name string) error {
 	return SaveLoops(registry)
 }
 
-// FindProjectRoot finds the project root (directory with rl.toml or .rl/)
+// FindProjectRoot finds the project root (directory with ralph.toml or .ralph/)
 func FindProjectRoot(start string) (string, error) {
 	dir := start
 	for {
-		if _, err := os.Stat(filepath.Join(dir, "rl.toml")); err == nil {
+		if _, err := os.Stat(filepath.Join(dir, "ralph.toml")); err == nil {
 			return dir, nil
 		}
-		if _, err := os.Stat(filepath.Join(dir, ".rl")); err == nil {
+		if _, err := os.Stat(filepath.Join(dir, ".ralph")); err == nil {
 			return dir, nil
 		}
 

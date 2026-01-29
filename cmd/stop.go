@@ -32,7 +32,7 @@ func runStop(cmd *cobra.Command, args []string) error {
 		cwd, _ := os.Getwd()
 		projectRoot, err := config.FindProjectRoot(cwd)
 		if err != nil {
-			return fmt.Errorf("not in a rl project and no loop name provided")
+			return fmt.Errorf("not in a ralph project and no loop name provided")
 		}
 		loopName = filepath.Base(projectRoot)
 	}

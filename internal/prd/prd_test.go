@@ -260,7 +260,7 @@ func TestIsComplete(t *testing.T) {
 
 func TestPRDPath(t *testing.T) {
 	path := PRDPath("/project")
-	expected := filepath.Join("/project", ".rl", "prd.json")
+	expected := filepath.Join("/project", ".ralph", "prd.json")
 	if path != expected {
 		t.Errorf("Expected %s, got %s", expected, path)
 	}

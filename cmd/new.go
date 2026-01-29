@@ -38,7 +38,7 @@ func runNew(cmd *cobra.Command, args []string) error {
 	cwd, _ := os.Getwd()
 	projectRoot, err := config.FindProjectRoot(cwd)
 	if err != nil {
-		return fmt.Errorf("not in a rl project. Run 'rl init' first")
+		return fmt.Errorf("not in a ralph project. Run 'ralph init' first")
 	}
 
 	// Load project config
@@ -83,16 +83,16 @@ func runNew(cmd *cobra.Command, args []string) error {
 
 	printSuccess(fmt.Sprintf("Worktree created at %s", worktreePath))
 
-	// Copy rl.toml if exists
-	srcConfig := filepath.Join(projectRoot, "rl.toml")
+	// Copy ralph.toml if exists
+	srcConfig := filepath.Join(projectRoot, "ralph.toml")
 	if _, err := os.Stat(srcConfig); err == nil {
-		dstConfig := filepath.Join(worktreePath, "rl.toml")
+		dstConfig := filepath.Join(worktreePath, "ralph.toml")
 		data, _ := os.ReadFile(srcConfig)
 		os.WriteFile(dstConfig, data, 0644)
 	}
 
-	// Create .rl directory
-	rlDir := filepath.Join(worktreePath, ".rl")
+	// Create .ralph directory
+	rlDir := filepath.Join(worktreePath, ".ralph")
 	os.MkdirAll(rlDir, 0755)
 
 	// Initialize progress file
@@ -149,7 +149,7 @@ This file tracks progress across iterations.
 	}
 
 	printSuccess(fmt.Sprintf("Ready! cd %s", worktreePath))
-	printInfo("Next: Create a PRD with 'rl prd create' then start with 'rl run'")
+	printInfo("Next: Create a PRD with 'ralph prd create' then start with 'ralph run'")
 
 	return nil
 }

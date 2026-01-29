@@ -54,7 +54,7 @@ func runCleanup(cmd *cobra.Command, args []string) error {
 			cwd, _ := os.Getwd()
 			projectRoot, err := config.FindProjectRoot(cwd)
 			if err != nil {
-				return fmt.Errorf("not in a rl project")
+				return fmt.Errorf("not in a ralph project")
 			}
 
 			projectName := filepath.Base(projectRoot)

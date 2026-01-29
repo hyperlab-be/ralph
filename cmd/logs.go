@@ -48,11 +48,11 @@ func runLogs(cmd *cobra.Command, args []string) error {
 		var err error
 		projectRoot, err = config.FindProjectRoot(cwd)
 		if err != nil {
-			return fmt.Errorf("not in a rl project and no loop name provided")
+			return fmt.Errorf("not in a ralph project and no loop name provided")
 		}
 	}
 
-	logFile := filepath.Join(projectRoot, ".rl", "session.log")
+	logFile := filepath.Join(projectRoot, ".ralph", "session.log")
 
 	// Check if log file exists
 	if _, err := os.Stat(logFile); os.IsNotExist(err) {

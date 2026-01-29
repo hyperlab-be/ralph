@@ -25,7 +25,7 @@ func runStatus(cmd *cobra.Command, args []string) error {
 	// Header
 	fmt.Println("\033[1m\033[36m")
 	fmt.Println("╔═══════════════════════════════════════════════════════════╗")
-	fmt.Println("║                 🤖 rl - Loop Status                       ║")
+	fmt.Println("║                 🤖 ralph - Loop Status                       ║")
 	fmt.Println("╚═══════════════════════════════════════════════════════════╝")
 	fmt.Println("\033[0m")
 
@@ -39,8 +39,8 @@ func runStatus(cmd *cobra.Command, args []string) error {
 		fmt.Println()
 		fmt.Println("Start a new project with:")
 		fmt.Println("  cd ~/Code/your-project")
-		fmt.Println("  rl init")
-		fmt.Println("  rl new feature-name")
+		fmt.Println("  ralph init")
+		fmt.Println("  ralph new feature-name")
 		return nil
 	}
 
