@@ -1,6 +1,6 @@
 # ralph
 
-CLI tool for managing AI-powered development loops. A standalone alternative to ralph-tui.
+CLI tool for managing AI-powered development loops.
 
 ## Features
 
