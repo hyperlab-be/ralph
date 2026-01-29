@@ -362,34 +362,30 @@ Now read .ralph/prd.json and .ralph/progress.txt, then begin work.
 func runAgentIteration(ctx context.Context, projectRoot string, p *prd.PRD, outputLog *os.File) error {
 	prompt := buildAgentPrompt(projectRoot, p)
 
-	// Write prompt to temp file
-	promptFile, err := os.CreateTemp("", "ralph-prompt-*.txt")
-	if err != nil {
-		return fmt.Errorf("failed to create prompt file: %w", err)
-	}
-	defer os.Remove(promptFile.Name())
+	// Use bash with stdin piping - this gives human-readable, unbuffered output
+	cmd := exec.CommandContext(ctx, "bash", "-c",
+		fmt.Sprintf("claude --dangerously-skip-permissions --model %s 2>&1 | tee -a %s", model, outputLog.Name()))
 
-	if _, err := promptFile.WriteString(prompt); err != nil {
-		return fmt.Errorf("failed to write prompt: %w", err)
-	}
-	promptFile.Close()
-
-	// Use bash to pipe prompt to claude and tee output
-	// This ensures proper output streaming
-	shellCmd := fmt.Sprintf(
-		"cat %s | claude --dangerously-skip-permissions --model %s 2>&1 | tee -a %s",
-		promptFile.Name(),
-		model,
-		outputLog.Name(),
-	)
-
-	cmd := exec.CommandContext(ctx, "bash", "-c", shellCmd)
 	cmd.Dir = projectRoot
 	cmd.Env = os.Environ()
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
-	return cmd.Run()
+	// Pipe prompt via stdin
+	stdin, err := cmd.StdinPipe()
+	if err != nil {
+		return fmt.Errorf("failed to create stdin pipe: %w", err)
+	}
+
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("failed to start: %w", err)
+	}
+
+	// Write prompt and close stdin
+	stdin.Write([]byte(prompt))
+	stdin.Close()
+
+	return cmd.Wait()
 }
 
 func findStory(p *prd.PRD, id string) *prd.Story {
