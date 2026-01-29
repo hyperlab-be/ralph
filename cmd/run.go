@@ -31,10 +31,9 @@ The agent will:
   - Commit changes and mark the story complete
   - Move to the next story
 
-Sandbox modes provide isolation for safe AFK operation:
+Sandbox modes provide isolation for safe operation:
   - docker: Docker sandbox (default, recommended)
-  - mac:    macOS sandbox-exec (experimental)
-  - none:   Direct execution (requires permission acceptance)`,
+  - mac:    macOS sandbox-exec (experimental)`,
 	RunE: runAgent,
 }
 
@@ -48,7 +47,7 @@ var (
 func init() {
 	runCmd.Flags().IntVarP(&maxIterations, "max-iterations", "m", 10, "Maximum iterations")
 	runCmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be done without executing")
-	runCmd.Flags().StringVarP(&sandbox, "sandbox", "s", "docker", "Sandbox mode: docker, mac, none")
+	runCmd.Flags().StringVarP(&sandbox, "sandbox", "s", "docker", "Sandbox mode: docker, mac")
 	runCmd.Flags().BoolVar(&once, "once", false, "Run single iteration (HITL mode)")
 	rootCmd.AddCommand(runCmd)
 }
@@ -105,8 +104,8 @@ func runAgent(cmd *cobra.Command, args []string) error {
 	}
 
 	// Validate sandbox
-	if sandbox != "none" && sandbox != "docker" && sandbox != "mac" {
-		return fmt.Errorf("invalid sandbox mode: %s (use: none, docker, mac)", sandbox)
+	if sandbox != "docker" && sandbox != "mac" {
+		return fmt.Errorf("invalid sandbox mode: %s (use: docker, mac)", sandbox)
 	}
 
 	// Check docker sandbox availability
@@ -432,7 +431,6 @@ func runAgentIteration(ctx context.Context, projectRoot string, p *prd.PRD, sand
 	case "docker":
 		// Docker sandbox - fully isolated, safe for AFK
 		printInfo("[Docker Sandbox]")
-		// docker sandbox run claude . -- --print --dangerously-skip-permissions -p "prompt"
 		cmd = exec.CommandContext(ctx, "docker", "sandbox", "run", "claude", ".",
 			"--", "--print", "--dangerously-skip-permissions", "-p", prompt)
 
@@ -443,18 +441,11 @@ func runAgentIteration(ctx context.Context, projectRoot string, p *prd.PRD, sand
 		if err != nil {
 			return fmt.Errorf("claude CLI not found")
 		}
-		// Simple sandbox-exec with permissive profile (better than nothing)
 		cmd = exec.CommandContext(ctx, "sandbox-exec", "-p", "(version 1)(allow default)",
 			claudePath, "--print", "--dangerously-skip-permissions", "-p", prompt)
 
 	default:
-		// No sandbox - interactive mode
-		printInfo("[No Sandbox - Interactive]")
-		claudePath, err := exec.LookPath("claude")
-		if err != nil {
-			return fmt.Errorf("claude CLI not found. Install with: npm install -g @anthropic-ai/claude-code")
-		}
-		cmd = exec.CommandContext(ctx, claudePath, "--print", "-p", prompt)
+		return fmt.Errorf("invalid sandbox mode: %s", sandboxMode)
 	}
 
 	cmd.Dir = projectRoot
