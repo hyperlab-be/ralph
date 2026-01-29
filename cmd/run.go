@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -24,20 +25,31 @@ var runCmd = &cobra.Command{
 	Long: `Start the AI agent loop for the current project.
 
 The agent will:
-  - Read the PRD and find the next incomplete story
+  - Read the PRD and choose the highest priority incomplete story
   - Work on implementing the story
   - Run tests and verify acceptance criteria
   - Commit changes and mark the story complete
-  - Move to the next story`,
+  - Move to the next story
+
+Sandbox modes provide isolation for safe AFK operation:
+  - none:   Direct execution (requires permission acceptance)
+  - docker: Docker sandbox (recommended for AFK)
+  - mac:    macOS sandbox-exec (experimental)`,
 	RunE: runAgent,
 }
 
-var maxIterations int
-var dryRun bool
+var (
+	maxIterations int
+	dryRun        bool
+	sandbox       string
+	once          bool
+)
 
 func init() {
 	runCmd.Flags().IntVarP(&maxIterations, "max-iterations", "m", 10, "Maximum iterations")
 	runCmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be done without executing")
+	runCmd.Flags().StringVarP(&sandbox, "sandbox", "s", "none", "Sandbox mode: none, docker, mac")
+	runCmd.Flags().BoolVar(&once, "once", false, "Run single iteration (HITL mode)")
 	rootCmd.AddCommand(runCmd)
 }
 
@@ -87,8 +99,25 @@ func runAgent(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	// --once overrides max-iterations
+	if once {
+		maxIterations = 1
+	}
+
+	// Validate sandbox
+	if sandbox != "none" && sandbox != "docker" && sandbox != "mac" {
+		return fmt.Errorf("invalid sandbox mode: %s (use: none, docker, mac)", sandbox)
+	}
+
+	// Check docker sandbox availability
+	if sandbox == "docker" {
+		if err := checkDockerSandbox(); err != nil {
+			return err
+		}
+	}
+
 	printInfo(fmt.Sprintf("Starting agent loop for %s", worktreeName))
-	printInfo(fmt.Sprintf("Model: %s | Max iterations: %d", model, maxIterations))
+	printInfo(fmt.Sprintf("Model: %s | Max iterations: %d | Sandbox: %s", model, maxIterations, sandbox))
 
 	if dryRun {
 		printWarn("Dry run mode - not executing")
@@ -98,6 +127,10 @@ func runAgent(cmd *cobra.Command, args []string) error {
 		}
 		return nil
 	}
+
+	// Create conversations directory
+	conversationsDir := filepath.Join(projectRoot, ".ralph", "conversations")
+	os.MkdirAll(conversationsDir, 0755)
 
 	// Update loop status
 	if loop == nil {
@@ -123,12 +156,13 @@ func runAgent(cmd *cobra.Command, args []string) error {
 		cancel()
 	}()
 
-	// Session log
+	// Session log (summary)
 	sessionLog := filepath.Join(projectRoot, ".ralph", "session.log")
 	logFile, _ := os.OpenFile(sessionLog, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	defer logFile.Close()
 
 	fmt.Fprintf(logFile, "\n=== Session started %s ===\n", time.Now().Format(time.RFC3339))
+	fmt.Fprintf(logFile, "Sandbox: %s\n", sandbox)
 
 	// Main loop
 	for iteration := 1; iteration <= maxIterations; iteration++ {
@@ -138,19 +172,49 @@ func runAgent(cmd *cobra.Command, args []string) error {
 		default:
 		}
 
-		// Get current story
-		story := p.GetCurrentStory()
-		if story == nil {
+		// Reload PRD each iteration (agent may have updated it)
+		p, _ = prd.Load(projectRoot)
+		if p == nil || p.IsComplete() {
 			printSuccess("All stories complete!")
 			break
 		}
 
 		fmt.Println()
-		printInfo(fmt.Sprintf("Iteration %d/%d: Story %s - %s", iteration, maxIterations, story.ID, story.Title))
-		fmt.Fprintf(logFile, "[%s] Iteration %d: %s\n", time.Now().Format("15:04:05"), iteration, story.Title)
+		fmt.Println(strings.Repeat("━", 60))
+		printInfo(fmt.Sprintf("Iteration %d/%d", iteration, maxIterations))
+		printInfo(fmt.Sprintf("Progress: %s", p.Progress()))
+		fmt.Println(strings.Repeat("━", 60))
+
+		// Create conversation log for this iteration
+		convLogPath := filepath.Join(conversationsDir, fmt.Sprintf("iteration-%d.md", iteration))
+		convLog, err := os.Create(convLogPath)
+		if err != nil {
+			printError(fmt.Sprintf("Failed to create conversation log: %v", err))
+			continue
+		}
+
+		// Write conversation header
+		fmt.Fprintf(convLog, "# Iteration %d\n\n", iteration)
+		fmt.Fprintf(convLog, "**Started:** %s\n", time.Now().Format(time.RFC3339))
+		fmt.Fprintf(convLog, "**Sandbox:** %s\n", sandbox)
+		fmt.Fprintf(convLog, "**Progress before:** %s\n\n", p.Progress())
+
+		fmt.Fprintf(logFile, "[%s] Iteration %d started\n", time.Now().Format("15:04:05"), iteration)
 
 		// Run agent iteration
-		err := runAgentIteration(ctx, projectRoot, story, logFile)
+		err = runAgentIteration(ctx, projectRoot, p, sandbox, convLog)
+		
+		// Write conversation footer
+		p, _ = prd.Load(projectRoot) // Reload to get updated progress
+		progressAfter := "unknown"
+		if p != nil {
+			progressAfter = p.Progress()
+		}
+		fmt.Fprintf(convLog, "\n\n---\n")
+		fmt.Fprintf(convLog, "**Ended:** %s\n", time.Now().Format(time.RFC3339))
+		fmt.Fprintf(convLog, "**Progress after:** %s\n", progressAfter)
+		convLog.Close()
+
 		if err != nil {
 			if ctx.Err() != nil {
 				break // Interrupted
@@ -160,14 +224,13 @@ func runAgent(cmd *cobra.Command, args []string) error {
 			continue
 		}
 
-		// Reload PRD to check if story completed
-		p, _ = prd.Load(projectRoot)
-		if p != nil {
-			updatedStory := findStory(p, story.ID)
-			if updatedStory != nil && updatedStory.Passes {
-				printSuccess(fmt.Sprintf("Story %s completed!", story.ID))
-				fmt.Fprintf(logFile, "[%s] Story %s completed\n", time.Now().Format("15:04:05"), story.ID)
-			}
+		fmt.Fprintf(logFile, "[%s] Iteration %d completed, progress: %s\n", 
+			time.Now().Format("15:04:05"), iteration, progressAfter)
+
+		// Brief pause between iterations (unless single iteration)
+		if iteration < maxIterations && !once {
+			printInfo("Pausing 5s before next iteration...")
+			time.Sleep(5 * time.Second)
 		}
 	}
 
@@ -180,18 +243,30 @@ func runAgent(cmd *cobra.Command, args []string) error {
 	fmt.Fprintf(logFile, "=== Session ended %s ===\n", time.Now().Format(time.RFC3339))
 
 	// Final status
+	p, _ = prd.Load(projectRoot)
 	if p != nil {
-		printInfo(fmt.Sprintf("Final progress: %s stories", p.Progress()))
+		fmt.Println()
+		fmt.Println(strings.Repeat("━", 60))
+		printInfo(fmt.Sprintf("Final progress: %s", p.Progress()))
+		fmt.Println(strings.Repeat("━", 60))
 
 		// Create PR if all stories complete
 		if p.IsComplete() {
-			printInfo("All stories complete! Creating pull request...")
+			printSuccess("All stories complete! Creating pull request...")
 			if err := createPullRequest(projectRoot, p); err != nil {
 				printWarn(fmt.Sprintf("Failed to create PR: %v", err))
 			}
 		}
 	}
 
+	return nil
+}
+
+func checkDockerSandbox() error {
+	cmd := exec.Command("docker", "sandbox", "--help")
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("docker sandbox not available. Install Docker Desktop with AI features enabled")
+	}
 	return nil
 }
 
@@ -276,43 +351,112 @@ func createPullRequest(projectRoot string, p *prd.PRD) error {
 	return nil
 }
 
-func runAgentIteration(ctx context.Context, projectRoot string, story *prd.Story, logFile *os.File) error {
-	// Build task description
-	var criteria strings.Builder
-	for _, c := range story.AcceptanceCriteria {
-		criteria.WriteString("- ")
-		criteria.WriteString(c)
-		criteria.WriteString("\n")
+// buildAgentPrompt creates the prompt that lets the agent choose and implement a story
+func buildAgentPrompt(projectRoot string, p *prd.PRD) string {
+	// Build stories list
+	var storiesList strings.Builder
+	for _, story := range p.UserStories {
+		status := "⬜ INCOMPLETE"
+		if story.Passes {
+			status = "✅ COMPLETE"
+		}
+		storiesList.WriteString(fmt.Sprintf("- [%s] %s: %s\n", story.ID, status, story.Title))
+		if story.Description != "" {
+			storiesList.WriteString(fmt.Sprintf("  Description: %s\n", story.Description))
+		}
+		if len(story.AcceptanceCriteria) > 0 {
+			storiesList.WriteString("  Criteria:\n")
+			for _, c := range story.AcceptanceCriteria {
+				storiesList.WriteString(fmt.Sprintf("    - %s\n", c))
+			}
+		}
 	}
 
-	task := fmt.Sprintf(`You are working in: %s
+	return fmt.Sprintf(`You are an autonomous coding agent working through a PRD (Product Requirement Document).
 
-## Current Story: %s
-
-### Description
+## Working Directory
 %s
 
-### Acceptance Criteria
+## PRD: %s
 %s
 
-### Instructions
-1. Implement the story requirements
-2. Write tests to verify the acceptance criteria
-3. Run tests and ensure they pass
-4. Commit changes with message: feat(story-%s): %s
-5. Update .ralph/prd.json to set passes: true for story %s
+## User Stories
+%s
 
-When complete, the story's "passes" field in .ralph/prd.json must be true.
-`, projectRoot, story.Title, story.Description, criteria.String(), story.ID, story.Title, story.ID)
+## Your Task
+1. Review the PRD and choose the HIGHEST PRIORITY incomplete story (passes: false)
+   - Prioritize: architectural decisions > integrations > core features > polish
+   - NOT necessarily the first in the list - use your judgment
 
-	// Check for Claude CLI
-	claudePath, err := exec.LookPath("claude")
-	if err != nil {
-		return fmt.Errorf("Claude CLI not found. Install with: npm install -g @anthropic-ai/claude-code")
+2. Implement that ONE story fully:
+   - Write clean, production-quality code
+   - Follow existing patterns in the codebase
+   - Write tests to verify acceptance criteria
+   - Run all feedback loops (tests, types, lint)
+
+3. After implementation:
+   - Run tests and fix any failures
+   - Commit changes with message: feat(story-ID): description
+   - Update .ralph/prd.json to set passes: true for the completed story
+
+4. Append to .ralph/progress.txt:
+   - Story completed
+   - Key decisions made
+   - Files changed
+   - Any notes for next iteration
+
+## Rules
+- Work on ONE story per iteration
+- Do NOT commit if tests fail
+- Be thorough - a story is only "done" when fully working
+- If blocked, document in progress.txt and move to next story
+
+## Completion Check
+If ALL stories have passes: true, output exactly:
+<promise>COMPLETE</promise>
+
+Now read .ralph/prd.json and .ralph/progress.txt, then begin work.
+`, projectRoot, p.Name, p.Description, storiesList.String())
+}
+
+func runAgentIteration(ctx context.Context, projectRoot string, p *prd.PRD, sandboxMode string, convLog *os.File) error {
+	prompt := buildAgentPrompt(projectRoot, p)
+
+	// Write prompt to conversation log
+	fmt.Fprintf(convLog, "## Prompt\n\n```\n%s\n```\n\n", prompt)
+	fmt.Fprintf(convLog, "## Agent Output\n\n```\n")
+
+	var cmd *exec.Cmd
+
+	switch sandboxMode {
+	case "docker":
+		// Docker sandbox - fully isolated, safe for AFK
+		printInfo("[Docker Sandbox]")
+		// docker sandbox run claude . -- --print --dangerously-skip-permissions -p "prompt"
+		cmd = exec.CommandContext(ctx, "docker", "sandbox", "run", "claude", ".",
+			"--", "--print", "--dangerously-skip-permissions", "-p", prompt)
+
+	case "mac":
+		// macOS sandbox - experimental
+		printInfo("[macOS Sandbox]")
+		claudePath, err := exec.LookPath("claude")
+		if err != nil {
+			return fmt.Errorf("claude CLI not found")
+		}
+		// Simple sandbox-exec with permissive profile (better than nothing)
+		cmd = exec.CommandContext(ctx, "sandbox-exec", "-p", "(version 1)(allow default)",
+			claudePath, "--print", "--dangerously-skip-permissions", "-p", prompt)
+
+	default:
+		// No sandbox - interactive mode
+		printInfo("[No Sandbox - Interactive]")
+		claudePath, err := exec.LookPath("claude")
+		if err != nil {
+			return fmt.Errorf("claude CLI not found. Install with: npm install -g @anthropic-ai/claude-code")
+		}
+		cmd = exec.CommandContext(ctx, claudePath, "--print", "-p", prompt)
 	}
 
-	// Run Claude
-	cmd := exec.CommandContext(ctx, claudePath, "--print", task)
 	cmd.Dir = projectRoot
 	cmd.Env = os.Environ()
 
@@ -321,29 +465,44 @@ When complete, the story's "passes" field in .ralph/prd.json must be true.
 	stderr, _ := cmd.StderrPipe()
 
 	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("failed to start Claude: %w", err)
+		return fmt.Errorf("failed to start agent: %w", err)
 	}
 
-	// Stream output
+	// Stream output to terminal and log
 	go func() {
-		scanner := bufio.NewScanner(stdout)
-		for scanner.Scan() {
-			line := scanner.Text()
-			fmt.Println(line)
-			logFile.WriteString(line + "\n")
+		reader := bufio.NewReader(stdout)
+		for {
+			line, err := reader.ReadString('\n')
+			if err != nil {
+				if err != io.EOF {
+					fmt.Fprintf(os.Stderr, "stdout read error: %v\n", err)
+				}
+				break
+			}
+			fmt.Print(line)
+			convLog.WriteString(line)
 		}
 	}()
 
 	go func() {
-		scanner := bufio.NewScanner(stderr)
-		for scanner.Scan() {
-			line := scanner.Text()
-			fmt.Fprintln(os.Stderr, line)
-			logFile.WriteString("[ERR] " + line + "\n")
+		reader := bufio.NewReader(stderr)
+		for {
+			line, err := reader.ReadString('\n')
+			if err != nil {
+				if err != io.EOF {
+					fmt.Fprintf(os.Stderr, "stderr read error: %v\n", err)
+				}
+				break
+			}
+			fmt.Fprint(os.Stderr, line)
+			convLog.WriteString("[ERR] " + line)
 		}
 	}()
 
-	return cmd.Wait()
+	err := cmd.Wait()
+	fmt.Fprintf(convLog, "```\n")
+	
+	return err
 }
 
 func findStory(p *prd.PRD, id string) *prd.Story {
