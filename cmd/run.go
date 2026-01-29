@@ -295,91 +295,18 @@ func createPullRequest(projectRoot string, p *prd.PRD) error {
 	return nil
 }
 
-// buildAgentPrompt creates the prompt that lets the agent choose and implement a story
-func buildAgentPrompt(projectRoot string, p *prd.PRD) string {
-	// Build stories list
-	var storiesList strings.Builder
-	for _, story := range p.UserStories {
-		status := "⬜ INCOMPLETE"
-		if story.Passes {
-			status = "✅ COMPLETE"
-		}
-		storiesList.WriteString(fmt.Sprintf("- [%s] %s: %s\n", story.ID, status, story.Title))
-		if story.Description != "" {
-			storiesList.WriteString(fmt.Sprintf("  Description: %s\n", story.Description))
-		}
-		if len(story.AcceptanceCriteria) > 0 {
-			storiesList.WriteString("  Criteria:\n")
-			for _, c := range story.AcceptanceCriteria {
-				storiesList.WriteString(fmt.Sprintf("    - %s\n", c))
-			}
-		}
-	}
-
-	return fmt.Sprintf(`You are an autonomous coding agent working through a PRD (Product Requirement Document).
-
-## Working Directory
-%s
-
-## PRD: %s
-%s
-
-## User Stories
-%s
-
-## Your Task
-1. Review the PRD and choose the HIGHEST PRIORITY incomplete story (passes: false)
-   - Prioritize: architectural decisions > integrations > core features > polish
-   - NOT necessarily the first in the list - use your judgment
-
-2. Implement that ONE story fully:
-   - Write clean, production-quality code
-   - Follow existing patterns in the codebase
-   - Write tests to verify acceptance criteria
-   - Run all feedback loops (tests, types, lint)
-
-3. After implementation:
-   - Run tests and fix any failures
-   - Commit changes with message: feat(story-ID): description
-   - Update .ralph/prd.json to set passes: true for the completed story
-
-4. Append to .ralph/progress.txt:
-   - Story completed
-   - Key decisions made
-   - Files changed
-   - Any notes for next iteration
-
-## Rules
-- Work on ONE story per iteration
-- Do NOT commit if tests fail
-- Be thorough - a story is only "done" when fully working
-- If blocked, document in progress.txt and move to next story
-
-Now read .ralph/prd.json and .ralph/progress.txt, then begin work.
-`, projectRoot, p.Name, p.Description, storiesList.String())
+// buildAgentPrompt creates a minimal prompt - claude reads files itself
+func buildAgentPrompt() string {
+	return `Read .ralph/prd.json. Pick the highest priority incomplete story (passes: false). Implement it fully with tests. Commit with message "feat(story-ID): description". Update prd.json to mark it complete. Append progress to .ralph/progress.txt.`
 }
 
 func runAgentIteration(ctx context.Context, projectRoot string, p *prd.PRD, outputLog *os.File) error {
-	prompt := buildAgentPrompt(projectRoot, p)
+	prompt := buildAgentPrompt()
 
-	// Write prompt to temp file for reliable piping
-	promptFile, err := os.CreateTemp("", "ralph-prompt-*.txt")
-	if err != nil {
-		return fmt.Errorf("failed to create prompt file: %w", err)
-	}
-	promptPath := promptFile.Name()
-	defer os.Remove(promptPath)
-
-	if _, err := promptFile.WriteString(prompt); err != nil {
-		promptFile.Close()
-		return fmt.Errorf("failed to write prompt: %w", err)
-	}
-	promptFile.Close()
-
-	// Use yes to auto-accept the bypass permissions confirmation, then run claude
-	// The prompt is passed as an argument to avoid stdin buffering issues
-	shellCmd := fmt.Sprintf("yes 2 | head -1 | claude --dangerously-skip-permissions --model %s \"$(cat '%s')\" 2>&1 | tee -a '%s'",
-		model, promptPath, outputLog.Name())
+	// Simple prompt as argument - claude reads PRD itself
+	// Use unbuffer to disable output buffering for live streaming to log
+	shellCmd := fmt.Sprintf("unbuffer claude --dangerously-skip-permissions --model %s %q 2>&1 | tee -a %q",
+		model, prompt, outputLog.Name())
 
 	cmd := exec.CommandContext(ctx, "bash", "-c", shellCmd)
 	cmd.Dir = projectRoot
