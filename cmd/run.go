@@ -370,8 +370,7 @@ func runAgentIteration(ctx context.Context, projectRoot string, p *prd.PRD, outp
 	// Always run with --dangerously-skip-permissions for autonomous operation
 	cmd := exec.CommandContext(ctx, claudePath,
 		"--dangerously-skip-permissions",
-		"--model", model,
-		"--print")
+		"--model", model)
 
 	cmd.Dir = projectRoot
 	cmd.Env = os.Environ()
