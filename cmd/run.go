@@ -32,9 +32,9 @@ The agent will:
   - Move to the next story
 
 Sandbox modes provide isolation for safe AFK operation:
-  - none:   Direct execution (requires permission acceptance)
-  - docker: Docker sandbox (recommended for AFK)
-  - mac:    macOS sandbox-exec (experimental)`,
+  - docker: Docker sandbox (default, recommended)
+  - mac:    macOS sandbox-exec (experimental)
+  - none:   Direct execution (requires permission acceptance)`,
 	RunE: runAgent,
 }
 
@@ -48,7 +48,7 @@ var (
 func init() {
 	runCmd.Flags().IntVarP(&maxIterations, "max-iterations", "m", 10, "Maximum iterations")
 	runCmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be done without executing")
-	runCmd.Flags().StringVarP(&sandbox, "sandbox", "s", "none", "Sandbox mode: none, docker, mac")
+	runCmd.Flags().StringVarP(&sandbox, "sandbox", "s", "docker", "Sandbox mode: docker, mac, none")
 	runCmd.Flags().BoolVar(&once, "once", false, "Run single iteration (HITL mode)")
 	rootCmd.AddCommand(runCmd)
 }
