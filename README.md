@@ -7,7 +7,6 @@ CLI tool for managing AI-powered development loops. Based on the [Ralph Wiggum](
 - 🌳 Create and manage git worktrees for features
 - 📋 Define PRDs (Product Requirement Documents) with user stories
 - 🤖 Run AI agents (Claude CLI) to implement features autonomously
-- 🐳 Docker sandbox support for safe AFK operation
 - 📝 Full conversation logging for debugging
 - 🔄 Agent chooses highest priority task (not just first in list)
 - 📊 Monitor progress across multiple loops
@@ -62,9 +61,9 @@ go build -o ralph .
 ```bash
 cd ~/Code/myproject
 ralph init                    # Initialize ralph
-ralph prd create              # Create PRD interactively
+ralph prd --new               # Create PRD interactively
+ralph prd "Add login page"    # Add a story
 ralph run                     # Start the loop
-ralph run --sandbox           # Run in Docker sandbox (AFK-safe)
 ralph run --once              # Single iteration (HITL mode)
 ```
 
@@ -76,18 +75,18 @@ Watch the agent work, intervene when needed:
 
 ```bash
 ralph run --once              # Single iteration
-ralph run --max-iterations 3  # Few iterations, stay close
+ralph run -m 3                # Few iterations, stay close
 ```
 
 Best for: Learning, prompt refinement, risky architectural work.
 
 ### AFK (Away From Keyboard)
 
-Let ralph run autonomously in a sandbox:
+Let ralph run autonomously:
 
 ```bash
-ralph run --sandbox           # Docker sandbox, safe to leave
-ralph run --sandbox -m 20     # 20 iterations max
+ralph run                     # Default: 10 iterations
+ralph run -m 20               # 20 iterations max
 ```
 
 Best for: Bulk work, well-defined tasks, overnight runs.
@@ -106,7 +105,7 @@ $ ralph init
 
 ---
 
-### `ralph new`
+### `ralph new <feature>`
 
 Create a new feature with git worktree.
 
@@ -114,7 +113,7 @@ Create a new feature with git worktree.
 $ ralph new user-auth
 ✓ Created worktree at ../myproject-user-auth
 ✓ Created branch feature/user-auth
-ℹ Next: Create a PRD with 'ralph prd create' then start with 'ralph run'
+ℹ Next: Create a PRD with 'ralph prd --new' then start with 'ralph run'
 ```
 
 ---
@@ -124,27 +123,25 @@ $ ralph new user-auth
 View, create, or edit the PRD.
 
 ```bash
+# Show PRD status
 $ ralph prd
-📋 PRD: User Authentication
+PRD: User Authentication
 
 [ ] 1. Login page with email/password
 [ ] 2. Password reset flow
 [✓] 3. OAuth integration (Google)
 
 Progress: 1/3 (33%)
-```
 
-Create interactively:
+# Create new PRD interactively
+$ ralph prd --new
 
-```bash
-$ ralph prd create
-```
-
-Add a story:
-
-```bash
-$ ralph prd add "Session management" -c "Sessions expire after 24h" -c "Refresh tokens supported"
+# Add a story
+$ ralph prd "Session management" -c "Sessions expire after 24h" -c "Refresh tokens supported"
 ✓ Added story 4: Session management
+
+# Edit PRD in $EDITOR
+$ ralph prd --edit
 ```
 
 ---
@@ -156,7 +153,7 @@ Start the AI agent loop.
 ```bash
 $ ralph run
 ℹ Starting agent loop for myproject-user-auth
-ℹ Model: claude-sonnet-4-20250514 | Max iterations: 10 | Sandbox: off
+ℹ Model: opus | Max iterations: 10
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Iteration 1/10
@@ -176,7 +173,7 @@ Final progress: 4/4
 
 | Flag | Description |
 |------|-------------|
-| `--sandbox` | Run in Docker sandbox (recommended for AFK) |
+| `--model` | Model to use (default: opus) |
 | `--once` | Single iteration (HITL mode) |
 | `-m, --max-iterations` | Maximum iterations (default: 10) |
 | `--dry-run` | Preview without executing |
@@ -208,8 +205,9 @@ $ ralph status
 View conversation logs.
 
 ```bash
-$ ralph logs myproject-user-auth      # Session summary
-$ ralph logs -f myproject-user-auth   # Follow in real-time
+$ ralph logs myproject-user-auth      # Progress summary
+$ ralph logs -f myproject-user-auth   # Follow output in real-time
+$ ralph logs --session                # Technical session log
 ```
 
 Full conversation logs are stored in `.ralph/conversations/`:
@@ -253,7 +251,6 @@ $ ralph doctor
 ✓ git: git version 2.39.0
 ✓ claude: Claude CLI installed
 ✓ gh: gh version 2.40.0
-✓ docker: Docker Desktop with sandbox support
 ```
 
 ---
@@ -272,18 +269,12 @@ prefix = "myproject"
 [hooks]
 setup = "./scripts/setup-worktree.sh"
 cleanup = "./scripts/cleanup-worktree.sh"
-
-[agent]
-model = "claude-sonnet-4-20250514"
-max_iterations = 10
 ```
 
 ### Global config (`~/.config/ralph/config.toml`)
 
 ```toml
 [defaults]
-model = "claude-sonnet-4-20250514"
-max_iterations = 10
 projects_dir = "~/Code"
 ```
 
@@ -330,7 +321,6 @@ myproject/
 - Go 1.21+
 - Git
 - [Claude CLI](https://docs.anthropic.com/en/docs/claude-code) 
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (for `--sandbox`)
 - [GitHub CLI](https://cli.github.com) (optional, for auto PR creation)
 
 ## Tips
@@ -339,7 +329,6 @@ myproject/
 2. **Small stories** - Smaller = better results
 3. **Explicit acceptance criteria** - Prevents shortcuts
 4. **Review conversation logs** - Debug via `.ralph/conversations/`
-5. **Use sandbox for AFK** - Safe to leave running
 
 ## License
 
