@@ -297,7 +297,7 @@ func createPullRequest(projectRoot string, p *prd.PRD) error {
 
 // buildAgentPrompt creates a minimal prompt - claude reads files itself
 func buildAgentPrompt() string {
-	return `Read .ralph/prd.json. Pick the highest priority incomplete story (passes: false). Implement it fully with tests. Commit with message "feat(story-ID): description". Update prd.json to mark it complete. Append progress to .ralph/progress.txt.`
+	return `Read .ralph/prd.json. Pick the highest priority incomplete story (passes: false). Implement it fully with tests. Commit with message "feat(story-ID): description". Update prd.json to mark it complete. Append progress to .ralph/progress.txt. Then exit immediately - do not ask for more input.`
 }
 
 func runAgentIteration(ctx context.Context, projectRoot string, p *prd.PRD, outputLog *os.File) error {
